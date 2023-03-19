@@ -36,6 +36,16 @@ struct Program
     u64                lastWriteTimestamp; // What is this for?
 };
 
+struct OpenGLInfo
+{
+    std::string version;
+    std::string renderer;
+    std::string vendor;
+    std::string glslVersion;
+    u32 numExtensions;
+    std::vector<std::string> extensions;;
+};
+
 enum Mode
 {
     Mode_TexturedQuad,
@@ -83,6 +93,9 @@ struct App
 
     // VAO object to link our screen filling quad with our textured quad shader
     GLuint vao;
+
+    // OpenGL information
+    OpenGLInfo openglInfo;
 };
 
 void Init(App* app);

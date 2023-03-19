@@ -180,6 +180,19 @@ u32 LoadTexture2D(App* app, const char* filepath)
 
 void Init(App* app)
 {
+    // Retrieve OpenGL information
+    app->openglInfo.version = (const char*)glGetString(GL_VERSION);
+    app->openglInfo.renderer = (const char*)glGetString(GL_RENDERER);
+    app->openglInfo.vendor = (const char*)glGetString(GL_VENDOR);
+    app->openglInfo.glslVersion = (const char*)glGetString(GL_SHADING_LANGUAGE_VERSION);
+    GLint numExtensions;
+    glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
+    app->openglInfo.numExtensions = numExtensions;
+    for (int i = 0; i < numExtensions; ++i)
+    {
+        app->openglInfo.extensions.push_back((const char*)glGetStringi(GL_EXTENSIONS, GLuint(i)));
+    }
+
     // TODO: Initialize your resources here!
     // - vertex buffers
     // - element/index buffers
@@ -195,6 +208,24 @@ void Gui(App* app)
     ImGui::Begin("Info");
     ImGui::Text("FPS: %f", 1.0f/app->deltaTime);
     ImGui::End();
+
+    if (ImGui::BeginMainMenuBar())
+    {
+        if (ImGui::BeginMenu("OpenGL Info"))
+        {
+            ImGui::Text("OpenGL version: %s", app->openglInfo.version.c_str());
+            ImGui::Text("OpenGL renderer: %s", app->openglInfo.renderer.c_str());
+            ImGui::Text("OpenGL vendor: %s", app->openglInfo.vendor.c_str());
+            ImGui::Text("OpenGL GLSL version: %s", app->openglInfo.glslVersion.c_str());
+            ImGui::Text("OpenGL extensions:");
+            for (int i = 0; i < app->openglInfo.numExtensions; ++i)
+            {
+                ImGui::BulletText(app->openglInfo.extensions.at(i).c_str());
+            }
+            ImGui::EndMenu();
+        }
+        ImGui::EndMainMenuBar();
+    }
 }
 
 void Update(App* app)
