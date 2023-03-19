@@ -46,6 +46,12 @@ struct OpenGLInfo
     std::vector<std::string> extensions;;
 };
 
+struct VertexV3V2
+{
+    glm::vec3 pos;
+    glm::vec2 uv;
+};
+
 enum Mode
 {
     Mode_TexturedQuad,
