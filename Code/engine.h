@@ -177,6 +177,9 @@ struct App
     // OpenGL information
     OpenGLInfo openglInfo;
 
+    // Model
+    u32 model;
+
     // Mesh
     Mesh* myMesh;
 };
