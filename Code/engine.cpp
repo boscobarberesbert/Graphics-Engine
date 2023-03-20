@@ -244,6 +244,24 @@ void Init(App* app)
     app->normalTexIdx = LoadTexture2D(app, "color_normal.png");
     app->magentaTexIdx = LoadTexture2D(app, "color_magenta.png");
 
+    // create the vertex format
+    VertexBufferLayout vertexBufferLayout = {};
+    vertexBufferLayout.attributes.push_back(VertexBufferAttribute{ 0, 3, 0 });                 // 3D positions
+    vertexBufferLayout.attributes.push_back(VertexBufferAttribute{ 2, 2, 3 * sizeof(float) }); // tex coords
+    vertexBufferLayout.stride = 5 * sizeof(float);
+
+    // add the submesh into the mesh
+    Submesh submesh = {};
+    submesh.vertexBufferLayout = vertexBufferLayout;
+    submesh.vertices.swap(vertices);
+    submesh.indices.swap(indices);
+    app->myMesh->submeshes.push_back(submesh);
+
+    app->texturedMeshProgramIdx = LoadProgram(app, "shaders.glsl", "SHOW_TEXTURED_MESH");
+    Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
+    texturedMeshProgram.vertexInputLayout.attributes.push_back({ 0, 3 }); // position
+    texturedMeshProgram.vertexInputLayout.attributes.push_back({ 2, 2 }); // texCoord
+
     app->mode = Mode_TexturedQuad;
 }
 

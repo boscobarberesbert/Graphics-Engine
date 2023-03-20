@@ -6,24 +6,38 @@
 #if defined(VERTEX) ///////////////////////////////////////////////////
 
 // TODO: Write your vertex shader here
-layout(location=0) in vec3 aPosition;
-layout(location=1) in vec2 aTexCoord;
+layout(location = 0) in vec3 aPosition;
+//layout(location = 1) in vec3 aNormal;
+layout(location = 2) in vec2 aTexCoord;
+//layout(location = 3) in vec3 aTangent;
+//layout(location = 4) in vec2 aBitTangent;
 
 out vec2 vTexCoord;
 
 void main()
 {
     vTexCoord = aTexCoord;
-    gl_Position = vec4(aPosition, 1.0);
+
+    // We will usually not define the clipping scale manually...
+    // it is usually computed by the projection matrix. Because
+    // we are not passing uniform transforms yet, we increase
+    // the clipping scale so that Patrick fits the screen.
+    float clippingScale = 5.0;
+
+    gl_Position = vec4(aPosition, clippingScale);
+
+    // Patrick looks away from the camera by default, so I flip it here.
+    glPosition.z = -gl_Position.z;
 }
 
 #elif defined(FRAGMENT) ///////////////////////////////////////////////
 
 // TODO: Write your fragment shader here
 in vec2 vTexCoord;
+
 uniform sampler2D uTexture;
 
-layout(location=0) out vec4 oColor;
+layout(location = 0) out vec4 oColor;
 
 void main()
 {
