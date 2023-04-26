@@ -27,7 +27,7 @@ void main()
     gl_Position = vec4(aPosition, clippingScale);
 
     // Patrick looks away from the camera by default, so I flip it here.
-    glPosition.z = -gl_Position.z;
+    gl_Position.z = -gl_Position.z;
 }
 
 #elif defined(FRAGMENT) ///////////////////////////////////////////////

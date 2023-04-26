@@ -102,28 +102,34 @@ u32 LoadProgram(App* app, const char* filepath, const char* programName)
     program.filepath = filepath;
     program.programName = programName;
     program.lastWriteTimestamp = GetFileLastWriteTimestamp(filepath);
-    app->programs.push_back(program);
 
     // Fill input vertex shader layout automatically
-    GLint attributeCount;
+    GLint attributeCount, attributeNameMaxLength;
     glGetProgramiv(program.handle, GL_ACTIVE_ATTRIBUTES, &attributeCount);
+    glGetProgramiv(program.handle, GL_ACTIVE_ATTRIBUTE_MAX_LENGTH, &attributeNameMaxLength);
     for (int i = 0; i < attributeCount; ++i)
     {
-        GLchar* attributeName = new GLchar();
+        char* attributeName = new char[++attributeNameMaxLength];
         GLint attributeNameLength;
         GLint attributeSize;
         GLenum attributeType;
-        GLint attributeLocation;
-        glGetActiveAttrib(program.handle, i,
-                          ARRAY_COUNT(attributeName),
-                          &attributeNameLength,
-                          &attributeSize,
-                          &attributeType,
-                          attributeName);
-        attributeLocation = glGetAttribLocation(program.handle, attributeName);
+        glGetActiveAttrib(program.handle, i, attributeNameMaxLength, &attributeNameLength, &attributeSize, &attributeType, attributeName);
+        u8 attributeLocation = glGetAttribLocation(program.handle, attributeName);
 
-        program.vertexInputLayout.attributes.push_back({ (u8)attributeLocation, (u8)attributeSize });
+        u8 componentCount = 1;
+        switch (attributeType)
+        {
+        case GL_FLOAT: componentCount = 1; break;
+        case GL_FLOAT_VEC2: componentCount = 2; break;
+        case GL_FLOAT_VEC3: componentCount = 3; break;
+        case GL_FLOAT_VEC4: componentCount = 4; break;
+        default: break;
+        }
+
+        program.vertexInputLayout.attributes.push_back({ attributeLocation, componentCount });
     }
+
+    app->programs.push_back(program);
 
     return app->programs.size() - 1;
 }
