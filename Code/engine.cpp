@@ -10,6 +10,10 @@
 #include <stb_image.h>
 #include <stb_image_write.h>
 
+#include <assimp/cimport.h>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+
 GLuint CreateProgramFromSource(String programSource, const char* shaderName)
 {
     GLchar  infoLogBuffer[1024] = {};
@@ -99,6 +103,27 @@ u32 LoadProgram(App* app, const char* filepath, const char* programName)
     program.programName = programName;
     program.lastWriteTimestamp = GetFileLastWriteTimestamp(filepath);
     app->programs.push_back(program);
+
+    // Fill input vertex shader layout automatically
+    GLint attributeCount;
+    glGetProgramiv(program.handle, GL_ACTIVE_ATTRIBUTES, &attributeCount);
+    for (int i = 0; i < attributeCount; ++i)
+    {
+        GLchar* attributeName = new GLchar();
+        GLint attributeNameLength;
+        GLint attributeSize;
+        GLenum attributeType;
+        GLint attributeLocation;
+        glGetActiveAttrib(program.handle, i,
+                          ARRAY_COUNT(attributeName),
+                          &attributeNameLength,
+                          &attributeSize,
+                          &attributeType,
+                          attributeName);
+        attributeLocation = glGetAttribLocation(program.handle, attributeName);
+
+        program.vertexInputLayout.attributes.push_back({ (u8)attributeLocation, (u8)attributeSize });
+    }
 
     return app->programs.size() - 1;
 }
@@ -197,7 +222,7 @@ GLuint FindVAO(Mesh& mesh, u32 submeshIndex, const Program& program)
         glBindBuffer(GL_ARRAY_BUFFER, mesh.vertexBufferHandle);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.indexBufferHandle);
 
-        // We have to link all vertex inputs attributes to attributes in the vertes buffer
+        // We have to link all vertex inputs attributes to attributes in the vertex buffer
         for (u32 i = 0; i < program.vertexInputLayout.attributes.size(); ++i)
         {
             bool attributeWasLinked = false;
@@ -231,6 +256,249 @@ GLuint FindVAO(Mesh& mesh, u32 submeshIndex, const Program& program)
     return vaoHandle;
 }
 
+void ProcessAssimpMesh(const aiScene* scene, aiMesh* mesh, Mesh* myMesh, u32 baseMeshMaterialIndex, std::vector<u32>& submeshMaterialIndices)
+{
+    std::vector<float> vertices;
+    std::vector<u32> indices;
+
+    bool hasTexCoords = false;
+    bool hasTangentSpace = false;
+
+    // process vertices
+    for (unsigned int i = 0; i < mesh->mNumVertices; i++)
+    {
+        vertices.push_back(mesh->mVertices[i].x);
+        vertices.push_back(mesh->mVertices[i].y);
+        vertices.push_back(mesh->mVertices[i].z);
+        vertices.push_back(mesh->mNormals[i].x);
+        vertices.push_back(mesh->mNormals[i].y);
+        vertices.push_back(mesh->mNormals[i].z);
+
+        if (mesh->mTextureCoords[0]) // does the mesh contain texture coordinates?
+        {
+            hasTexCoords = true;
+            vertices.push_back(mesh->mTextureCoords[0][i].x);
+            vertices.push_back(mesh->mTextureCoords[0][i].y);
+        }
+
+        if (mesh->mTangents != nullptr && mesh->mBitangents)
+        {
+            hasTangentSpace = true;
+            vertices.push_back(mesh->mTangents[i].x);
+            vertices.push_back(mesh->mTangents[i].y);
+            vertices.push_back(mesh->mTangents[i].z);
+
+            // For some reason ASSIMP gives me the bitangents flipped.
+            // Maybe it's my fault, but when I generate my own geometry
+            // in other files (see the generation of standard assets)
+            // and all the bitangents have the orientation I expect,
+            // everything works ok.
+            // I think that (even if the documentation says the opposite)
+            // it returns a left-handed tangent space matrix.
+            // SOLUTION: I invert the components of the bitangent here.
+            vertices.push_back(-mesh->mBitangents[i].x);
+            vertices.push_back(-mesh->mBitangents[i].y);
+            vertices.push_back(-mesh->mBitangents[i].z);
+        }
+    }
+
+    // process indices
+    for (unsigned int i = 0; i < mesh->mNumFaces; i++)
+    {
+        aiFace face = mesh->mFaces[i];
+        for (unsigned int j = 0; j < face.mNumIndices; j++)
+        {
+            indices.push_back(face.mIndices[j]);
+        }
+    }
+
+    // store the proper (previously proceessed) material for this mesh
+    submeshMaterialIndices.push_back(baseMeshMaterialIndex + mesh->mMaterialIndex);
+
+    // create the vertex format
+    VertexBufferLayout vertexBufferLayout = {};
+    vertexBufferLayout.attributes.push_back(VertexBufferAttribute{ 0, 3, 0 });
+    vertexBufferLayout.attributes.push_back(VertexBufferAttribute{ 1, 3, 3 * sizeof(float) });
+    vertexBufferLayout.stride = 6 * sizeof(float);
+    if (hasTexCoords)
+    {
+        vertexBufferLayout.attributes.push_back(VertexBufferAttribute{ 2, 2, vertexBufferLayout.stride });
+        vertexBufferLayout.stride += 2 * sizeof(float);
+    }
+    if (hasTangentSpace)
+    {
+        vertexBufferLayout.attributes.push_back(VertexBufferAttribute{ 3, 3, vertexBufferLayout.stride });
+        vertexBufferLayout.stride += 3 * sizeof(float);
+
+        vertexBufferLayout.attributes.push_back(VertexBufferAttribute{ 4, 3, vertexBufferLayout.stride });
+        vertexBufferLayout.stride += 3 * sizeof(float);
+    }
+
+    // add the submesh into the mesh
+    Submesh submesh = {};
+    submesh.vertexBufferLayout = vertexBufferLayout;
+    submesh.vertices.swap(vertices);
+    submesh.indices.swap(indices);
+    myMesh->submeshes.push_back(submesh);
+}
+
+void ProcessAssimpMaterial(App* app, aiMaterial* material, Material& myMaterial, String directory)
+{
+    aiString name;
+    aiColor3D diffuseColor;
+    aiColor3D emissiveColor;
+    aiColor3D specularColor;
+    ai_real shininess;
+    material->Get(AI_MATKEY_NAME, name);
+    material->Get(AI_MATKEY_COLOR_DIFFUSE, diffuseColor);
+    material->Get(AI_MATKEY_COLOR_EMISSIVE, emissiveColor);
+    material->Get(AI_MATKEY_COLOR_SPECULAR, specularColor);
+    material->Get(AI_MATKEY_SHININESS, shininess);
+
+    myMaterial.name = name.C_Str();
+    myMaterial.albedo = vec3(diffuseColor.r, diffuseColor.g, diffuseColor.b);
+    myMaterial.emissive = vec3(emissiveColor.r, emissiveColor.g, emissiveColor.b);
+    myMaterial.smoothness = shininess / 256.0f;
+
+    aiString aiFilename;
+    if (material->GetTextureCount(aiTextureType_DIFFUSE) > 0)
+    {
+        material->GetTexture(aiTextureType_DIFFUSE, 0, &aiFilename);
+        String filename = MakeString(aiFilename.C_Str());
+        String filepath = MakePath(directory, filename);
+        myMaterial.albedoTextureIdx = LoadTexture2D(app, filepath.str);
+    }
+    if (material->GetTextureCount(aiTextureType_EMISSIVE) > 0)
+    {
+        material->GetTexture(aiTextureType_EMISSIVE, 0, &aiFilename);
+        String filename = MakeString(aiFilename.C_Str());
+        String filepath = MakePath(directory, filename);
+        myMaterial.emissiveTextureIdx = LoadTexture2D(app, filepath.str);
+    }
+    if (material->GetTextureCount(aiTextureType_SPECULAR) > 0)
+    {
+        material->GetTexture(aiTextureType_SPECULAR, 0, &aiFilename);
+        String filename = MakeString(aiFilename.C_Str());
+        String filepath = MakePath(directory, filename);
+        myMaterial.specularTextureIdx = LoadTexture2D(app, filepath.str);
+    }
+    if (material->GetTextureCount(aiTextureType_NORMALS) > 0)
+    {
+        material->GetTexture(aiTextureType_NORMALS, 0, &aiFilename);
+        String filename = MakeString(aiFilename.C_Str());
+        String filepath = MakePath(directory, filename);
+        myMaterial.normalsTextureIdx = LoadTexture2D(app, filepath.str);
+    }
+    if (material->GetTextureCount(aiTextureType_HEIGHT) > 0)
+    {
+        material->GetTexture(aiTextureType_HEIGHT, 0, &aiFilename);
+        String filename = MakeString(aiFilename.C_Str());
+        String filepath = MakePath(directory, filename);
+        myMaterial.bumpTextureIdx = LoadTexture2D(app, filepath.str);
+    }
+
+    //myMaterial.createNormalFromBump();
+}
+
+void ProcessAssimpNode(const aiScene* scene, aiNode* node, Mesh* myMesh, u32 baseMeshMaterialIndex, std::vector<u32>& submeshMaterialIndices)
+{
+    // process all the node's meshes (if any)
+    for (unsigned int i = 0; i < node->mNumMeshes; i++)
+    {
+        aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+        ProcessAssimpMesh(scene, mesh, myMesh, baseMeshMaterialIndex, submeshMaterialIndices);
+    }
+
+    // then do the same for each of its children
+    for (unsigned int i = 0; i < node->mNumChildren; i++)
+    {
+        ProcessAssimpNode(scene, node->mChildren[i], myMesh, baseMeshMaterialIndex, submeshMaterialIndices);
+    }
+}
+
+u32 LoadModel(App* app, const char* filename)
+{
+    const aiScene* scene = aiImportFile(filename,
+        aiProcess_Triangulate |
+        aiProcess_GenSmoothNormals |
+        aiProcess_CalcTangentSpace |
+        aiProcess_JoinIdenticalVertices |
+        aiProcess_PreTransformVertices |
+        aiProcess_ImproveCacheLocality |
+        aiProcess_OptimizeMeshes |
+        aiProcess_SortByPType);
+
+    if (!scene)
+    {
+        ELOG("Error loading mesh %s: %s", filename, aiGetErrorString());
+        return UINT32_MAX;
+    }
+
+    app->meshes.push_back(Mesh{});
+    Mesh& mesh = app->meshes.back();
+    u32 meshIdx = (u32)app->meshes.size() - 1u;
+
+    app->models.push_back(Model{});
+    Model& model = app->models.back();
+    model.meshIdx = meshIdx;
+    u32 modelIdx = (u32)app->models.size() - 1u;
+
+    String directory = GetDirectoryPart(MakeString(filename));
+
+    // Create a list of materials
+    u32 baseMeshMaterialIndex = (u32)app->materials.size();
+    for (unsigned int i = 0; i < scene->mNumMaterials; ++i)
+    {
+        app->materials.push_back(Material{});
+        Material& material = app->materials.back();
+        ProcessAssimpMaterial(app, scene->mMaterials[i], material, directory);
+    }
+
+    ProcessAssimpNode(scene, scene->mRootNode, &mesh, baseMeshMaterialIndex, model.materialIdx);
+
+    aiReleaseImport(scene);
+
+    u32 vertexBufferSize = 0;
+    u32 indexBufferSize = 0;
+
+    for (u32 i = 0; i < mesh.submeshes.size(); ++i)
+    {
+        vertexBufferSize += mesh.submeshes[i].vertices.size() * sizeof(float);
+        indexBufferSize += mesh.submeshes[i].indices.size() * sizeof(u32);
+    }
+
+    glGenBuffers(1, &mesh.vertexBufferHandle);
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.vertexBufferHandle);
+    glBufferData(GL_ARRAY_BUFFER, vertexBufferSize, NULL, GL_STATIC_DRAW);
+
+    glGenBuffers(1, &mesh.indexBufferHandle);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.indexBufferHandle);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indexBufferSize, NULL, GL_STATIC_DRAW);
+
+    u32 indicesOffset = 0;
+    u32 verticesOffset = 0;
+
+    for (u32 i = 0; i < mesh.submeshes.size(); ++i)
+    {
+        const void* verticesData = mesh.submeshes[i].vertices.data();
+        const u32   verticesSize = mesh.submeshes[i].vertices.size() * sizeof(float);
+        glBufferSubData(GL_ARRAY_BUFFER, verticesOffset, verticesSize, verticesData);
+        mesh.submeshes[i].vertexOffset = verticesOffset;
+        verticesOffset += verticesSize;
+
+        const void* indicesData = mesh.submeshes[i].indices.data();
+        const u32   indicesSize = mesh.submeshes[i].indices.size() * sizeof(u32);
+        glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, indicesOffset, indicesSize, indicesData);
+        mesh.submeshes[i].indexOffset = indicesOffset;
+        indicesOffset += indicesSize;
+    }
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    return modelIdx;
+}
+
 void Init(App* app)
 {
     // Retrieve OpenGL information
@@ -253,92 +521,19 @@ void Init(App* app)
     // - programs (and retrieve uniform indices)
     // - textures
 
-    /*const VertexV3V2 vertices[] = {
-        { glm::vec3(-0.5, -0.5, 0.0), glm::vec2(0.0, 0.0) }, // bottom-left vertex
-        { glm::vec3( 0.5, -0.5, 0.0), glm::vec2(1.0, 0.0) }, // bottom-right vertex
-        { glm::vec3( 0.5,  0.5, 0.0), glm::vec2(1.0, 1.0) }, // top-right vertex
-        { glm::vec3(-0.5,  0.5, 0.0), glm::vec2(0.0, 1.0) }, // top-left vertex
-    };
-
-    const u16 indices[] = {
-        0, 1, 2,
-        0, 2, 3
-    };*/
-
-    // Geometry
-    /*glGenBuffers(1, &app->embeddedVertices);
-    glBindBuffer(GL_ARRAY_BUFFER, app->embeddedVertices);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    glGenBuffers(1, &app->embeddedElements);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, app->embeddedElements);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);*/
-
-    // Attribute state
-    /*glGenVertexArrays(1, &app->vao);
-    glBindVertexArray(app->vao);
-    glBindBuffer(GL_ARRAY_BUFFER, app->embeddedVertices);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexV3V2), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(VertexV3V2), (void*)12);
-    glEnableVertexAttribArray(1);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, app->embeddedElements);
-    glBindVertexArray(0);*/
-
-    /*app->texturedGeometryProgramIdx = LoadProgram(app, "shaders.glsl", "TEXTURED_GEOMETRY");
-    Program& textureGeometryProgram = app->programs[app->texturedGeometryProgramIdx];
-    app->programUniformTexture = glGetUniformLocation(textureGeometryProgram.handle, "uTexture");*/
+    app->texturedMeshProgramIdx = LoadProgram(app, "shaders.glsl", "TEXTURED_GEOMETRY");
+    Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
+    app->programUniformTexture = glGetUniformLocation(texturedMeshProgram.handle, "uTexture");
 
     app->diceTexIdx = LoadTexture2D(app, "dice.png");
     app->whiteTexIdx = LoadTexture2D(app, "color_white.png");
     app->blackTexIdx = LoadTexture2D(app, "color_black.png");
     app->normalTexIdx = LoadTexture2D(app, "color_normal.png");
     app->magentaTexIdx = LoadTexture2D(app, "color_magenta.png");
+    
+    app->model = LoadModel(app, "Patrick/Patrick.obj");
 
-    std::vector<f32> vertices = { 1.0f, 2.0f, 3.0f };
-    std::vector<u32> indices = { 1, 2, 3 };
-
-    // create the vertex format
-    VertexBufferLayout vertexBufferLayout = {};
-    vertexBufferLayout.attributes.push_back(VertexBufferAttribute{ 0, 3, 0 });                 // 3D positions
-    vertexBufferLayout.attributes.push_back(VertexBufferAttribute{ 2, 2, 3 * sizeof(float) }); // tex coords
-    vertexBufferLayout.stride = 5 * sizeof(float);
-
-    // add the submesh into the mesh
-    Submesh submesh = {};
-    submesh.vertexBufferLayout = vertexBufferLayout;
-    submesh.vertices.swap(vertices);
-    submesh.indices.swap(indices);
-    app->myMesh->submeshes.push_back(submesh);
-
-    app->texturedMeshProgramIdx = LoadProgram(app, "shaders.glsl", "SHOW_TEXTURED_MESH");
-    Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
-    //texturedMeshProgram.vertexInputLayout.attributes.push_back({ 0, 3 }); // position
-    //texturedMeshProgram.vertexInputLayout.attributes.push_back({ 2, 2 }); // texCoord
-    glUseProgram(texturedMeshProgram.handle);
-
-    Model& model = app->models[app->model];
-    Mesh& mesh = app->meshes[model.meshIdx];
-
-    for (u32 i = 0; i < mesh.submeshes.size(); ++i)
-    {
-        GLuint vao = FindVAO(mesh, i, texturedMeshProgram);
-        glBindVertexArray(vao);
-
-        u32 submeshMaterialIdx = model.materialIdx[i];
-        Material& submeshMaterial = app->materials[submeshMaterialIdx];
-
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, app->textures[submeshMaterial.albedoTextureIdx].handle);
-        glUniform1i(app->texturedMeshProgram_uTexture, 0);
-
-        Submesh& submesh = mesh.submeshes[i];
-        glDrawElements(GL_TRIANGLES, submesh.indices.size(), GL_UNSIGNED_INT, (void*)(u64)submesh.indexOffset);
-    }
-
-    app->mode = Mode_TexturedQuad;
+    app->mode = Mode_3DModel;
 }
 
 void Gui(App* app)
@@ -408,6 +603,31 @@ void Render(App* app)
 
                 glBindVertexArray(0);
                 glUseProgram(0);
+            }
+            break;
+        case Mode_3DModel:
+            {
+                Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
+                glUseProgram(texturedMeshProgram.handle);
+
+                Model& model = app->models[app->model];
+                Mesh& mesh = app->meshes[model.meshIdx];
+
+                for (u32 i = 0; i < mesh.submeshes.size(); ++i)
+                {
+                    GLuint vao = FindVAO(mesh, i, texturedMeshProgram);
+                    glBindVertexArray(vao);
+
+                    u32 submeshMaterialIdx = model.materialIdx[i];
+                    Material& submeshMaterial = app->materials[submeshMaterialIdx];
+
+                    glActiveTexture(GL_TEXTURE0);
+                    glBindTexture(GL_TEXTURE_2D, app->textures[submeshMaterial.albedoTextureIdx].handle);
+                    glUniform1i(app->programUniformTexture, 0);
+
+                    Submesh& submesh = mesh.submeshes[i];
+                    glDrawElements(GL_TRIANGLES, submesh.indices.size(), GL_UNSIGNED_INT, (void*)(u64)submesh.indexOffset);
+                }
             }
             break;
 

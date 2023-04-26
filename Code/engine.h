@@ -28,32 +28,6 @@ struct Texture
     std::string filepath;
 };
 
-struct Program
-{
-    GLuint             handle;
-    std::string        filepath;
-    std::string        programName;
-    u64                lastWriteTimestamp; // What is this for?
-
-    VertexShaderLayout vertexInputLayout;
-};
-
-struct OpenGLInfo
-{
-    std::string version;
-    std::string renderer;
-    std::string vendor;
-    std::string glslVersion;
-    u32 numExtensions;
-    std::vector<std::string> extensions;;
-};
-
-struct VertexV3V2
-{
-    glm::vec3 pos;
-    glm::vec2 uv;
-};
-
 struct VertexBufferAttribute
 {
     u8 location;
@@ -82,6 +56,32 @@ struct Vao
 {
     GLuint handle;
     GLuint programHandle;
+};
+
+struct Program
+{
+    GLuint             handle;
+    std::string        filepath;
+    std::string        programName;
+    u64                lastWriteTimestamp; // What is this for?
+
+    VertexShaderLayout vertexInputLayout;
+};
+
+struct OpenGLInfo
+{
+    std::string version;
+    std::string renderer;
+    std::string vendor;
+    std::string glslVersion;
+    u32 numExtensions;
+    std::vector<std::string> extensions;;
+};
+
+struct VertexV3V2
+{
+    glm::vec3 pos;
+    glm::vec2 uv;
 };
 
 struct Model
@@ -123,6 +123,7 @@ struct Material
 
 enum Mode
 {
+    Mode_3DModel,
     Mode_TexturedQuad,
     Mode_Count
 };
