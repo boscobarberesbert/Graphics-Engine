@@ -193,3 +193,20 @@ void Update(App* app);
 
 void Render(App* app);
 
+// NOT IN USE
+class OpenGLErrorGuard
+{
+public:
+
+    OpenGLErrorGuard(const char* message) : msg(message) {
+        checkGLError("BEGIN", msg);
+    }
+
+    ~OpenGLErrorGuard() {
+        checkGLError("END", msg);
+    }
+
+    static void checkGLError(const char* around, const char* message);
+
+    const char* msg;
+};
