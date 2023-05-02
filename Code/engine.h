@@ -7,12 +7,17 @@
 #include "platform.h"
 #include <glad/glad.h>
 
+#include "GLFW/glfw3.h"
+#include "Camera.h"
+
 typedef glm::vec2  vec2;
 typedef glm::vec3  vec3;
 typedef glm::vec4  vec4;
 typedef glm::ivec2 ivec2;
 typedef glm::ivec3 ivec3;
 typedef glm::ivec4 ivec4;
+
+typedef glm::mat4 mat4;
 
 struct Image
 {
@@ -181,8 +186,17 @@ struct App
     // Model
     u32 model;
 
-    // Mesh
-    Mesh* myMesh;
+    // Uniform buffer handle
+    GLuint bufferHandle;
+
+    // Camera
+    Camera camera;
+
+    // Last mouse positions (initialized in the center of the screen)
+    float lastX = displaySize.x / 2.0f;
+    float lastY = displaySize.y / 2.0f;
+
+    bool firstMouse = true; // To check if it's the first time we receive mouse input
 };
 
 void Init(App* app);
@@ -193,20 +207,10 @@ void Update(App* app);
 
 void Render(App* app);
 
-// NOT IN USE
-class OpenGLErrorGuard
-{
-public:
+void FramebufferSizeCallback(GLFWwindow* window, int width, int height); // Window resize
 
-    OpenGLErrorGuard(const char* message) : msg(message) {
-        checkGLError("BEGIN", msg);
-    }
+//void ProcessInput(App* app, GLFWwindow* window);                       // Keyboard Input
 
-    ~OpenGLErrorGuard() {
-        checkGLError("END", msg);
-    }
+void MouseCallback(App* app, double xpos, double ypos);                  // Mouse Input (Move - Drag)
 
-    static void checkGLError(const char* around, const char* message);
-
-    const char* msg;
-};
+void ScrollCallback(App* app, double xoffset, double yoffset);           // Mouse Input (Scroll - Wheel)

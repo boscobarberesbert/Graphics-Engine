@@ -16,6 +16,9 @@
     <Filter Include="Stb">
       <UniqueIdentifier>{0ac2ff0f-5f18-480a-8bd6-6aa7428166bb}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Engine\OpenGLErrorGuard">
+      <UniqueIdentifier>{ab088f13-eeaf-4318-9450-2350b5b89974}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ThirdParty\imgui-docking\imgui.cpp">
@@ -50,6 +53,9 @@
     </ClCompile>
     <ClCompile Include="ThirdParty\stb\stb.cpp">
       <Filter>Stb</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\OpenGLErrorGuard.cpp">
+      <Filter>Engine\OpenGLErrorGuard</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -91,6 +97,12 @@
     </ClInclude>
     <ClInclude Include="ThirdParty\stb\stb_image.h">
       <Filter>Stb</Filter>
+    </ClInclude>
+    <ClInclude Include="Code\OpenGLErrorGuard.h">
+      <Filter>Engine\OpenGLErrorGuard</Filter>
+    </ClInclude>
+    <ClInclude Include="Code\Camera.h">
+      <Filter>Engine</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

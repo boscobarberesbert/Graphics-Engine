@@ -14,6 +14,8 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
+#define BINDING(b) b
+
 GLuint CreateProgramFromSource(String programSource, const char* shaderName)
 {
     GLchar  infoLogBuffer[1024] = {};
@@ -552,6 +554,71 @@ void OnGlError(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei l
     }
 }
 
+mat4 TransformScale(const vec3& scaleFactors)
+{
+    mat4 transform = scale(scaleFactors);
+    return transform;
+}
+
+mat4 TransformPositionScale(const vec3& pos, const vec3& scaleFactors)
+{
+    mat4 transform = translate(pos);
+    transform = scale(transform, scaleFactors);
+    return transform;
+}
+
+// glfw: whenever the window size changed (by OS or user resize) this callback function executes
+void FramebufferSizeCallback(GLFWwindow* window, int width, int height)
+{
+    // make sure the viewport matches the new window dimensions; note that width and 
+    // height will be significantly larger than specified on retina displays.
+    glViewport(0, 0, width, height);
+}
+
+// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
+void ProcessInput(App* app, GLFWwindow* window)
+{
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, true);
+
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        app->camera.ProcessKeyboard(FORWARD, app->deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        app->camera.ProcessKeyboard(BACKWARD, app->deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+        app->camera.ProcessKeyboard(CAM_LEFT, app->deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        app->camera.ProcessKeyboard(CAM_RIGHT, app->deltaTime);
+}
+
+// glfw: whenever the mouse moves, this callback is called
+void MouseCallback(App* app, double xposIn, double yposIn)
+{
+    float xpos = static_cast<float>(xposIn);
+    float ypos = static_cast<float>(yposIn);
+
+    if (app->firstMouse) // initially set to true
+    {
+        app->lastX = xpos;
+        app->lastY = ypos;
+        app->firstMouse = false;
+    }
+
+    float xoffset = xpos - app->lastX;
+    float yoffset = app->lastY - ypos; // reversed since y-coordinates go from bottom to top
+
+    app->lastX = xpos;
+    app->lastY = ypos;
+
+    app->camera.ProcessMouseMovement(xoffset, yoffset);
+}
+
+// glfw: whenever the mouse scroll wheel scrolls, this callback is called
+void ScrollCallback(App* app, double xoffset, double yoffset)
+{
+    app->camera.ProcessMouseScroll(static_cast<float>(yoffset));
+}
+
 void Init(App* app)
 {
     // NOT IN USE
@@ -568,6 +635,12 @@ void Init(App* app)
     {
         glDebugMessageCallback(OnGlError, app);
     }
+
+    // tell GLFW to capture our mouse
+    //glfwSetInputMode(glfwGetCurrentContext(), GLFW_CURSOR, GLFW_CURSOR_DISABLED); // Tell GLFW that it should hide the cursor and capture it
+
+    // configure global opengl state
+    glEnable(GL_DEPTH_TEST); // Enable depth testing (Z-buffer), to take into account the fragment depth
 
     // Retrieve OpenGL information
     app->openglInfo.version = (const char*)glGetString(GL_VERSION);
@@ -590,8 +663,21 @@ void Init(App* app)
     // - textures
 
     app->texturedMeshProgramIdx = LoadProgram(app, "shaders.glsl", "TEXTURED_GEOMETRY");
-    Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
-    app->programUniformTexture = glGetUniformLocation(texturedMeshProgram.handle, "uTexture");
+    //Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
+    //app->programUniformTexture = glGetUniformLocation(texturedMeshProgram.handle, "uTexture");
+
+    // Creating uniform buffers
+    GLint maxUniformBufferSize, uniformBlockAlignment;
+    glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &maxUniformBufferSize);
+    glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &uniformBlockAlignment);
+
+    glGenBuffers(1, &app->bufferHandle);
+    glBindBuffer(GL_UNIFORM_BUFFER, app->bufferHandle);
+    glBufferData(GL_UNIFORM_BUFFER, maxUniformBufferSize, NULL, GL_STREAM_DRAW);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+    // Camera setup
+    app->camera = Camera(glm::vec3(0.0f, 0.0f, 10.0f));
 
     app->diceTexIdx = LoadTexture2D(app, "dice.png");
     app->whiteTexIdx = LoadTexture2D(app, "color_white.png");
@@ -632,6 +718,7 @@ void Gui(App* app)
 void Update(App* app)
 {
     // In Update() -> check timestamp / reload
+    // TO DO: Put it in an ImGui button in order not to update it in each frame
     for (u64 i = 0; i < app->programs.size(); ++i)
     {
         Program& program = app->programs[i];
@@ -647,6 +734,68 @@ void Update(App* app)
     }
 
     // You can handle app->input keyboard/mouse here
+    ProcessInput(app, glfwGetCurrentContext());
+
+    // Model matrix
+    mat4 model(1.0f);
+
+    // View matrix
+    mat4 view;
+    switch (app->camera.cameraMode)
+    {
+    case CameraMode_Free:
+        view = app->camera.GetViewMatrix();
+        break;
+    case CameraMode_Orbital:
+        {
+            const float radius = 10.0f;
+            float camX = sin(glfwGetTime()) * radius;
+            float camZ = cos(glfwGetTime()) * radius;
+            view = glm::lookAt(glm::vec3(camX, 0.0, camZ), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 1.0, 0.0));
+        }
+        break;
+    default:
+        break;
+    }
+
+    // Projection matrix
+    mat4 projection;
+    float aspectRatio = (float)app->displaySize.x / (float)app->displaySize.y;
+    float znear = 0.1f;
+    float zfar = 100.0f;
+    switch (app->camera.cameraProjectionMode)
+    {
+    case CameraProjectionMode_Orthographic: // Orthographic projection matrix
+        projection = glm::ortho(0.0f, (float)app->displaySize.x, 0.0f, (float)app->displaySize.y, znear, zfar);
+        break;
+    case CameraProjectionMode_Perspective: // Perspective projection matrix
+        projection = glm::perspective(glm::radians(app->camera.zoom), aspectRatio, znear, zfar);
+        break;
+    default:
+        break;
+    }
+
+    // Filling uniform buffers
+    glBindBuffer(GL_UNIFORM_BUFFER, app->bufferHandle);
+    u8* bufferData = (u8*)glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
+    u32 bufferHead = 0;
+
+    memcpy(bufferData + bufferHead, glm::value_ptr(model), sizeof(glm::mat4));
+    bufferHead += sizeof(glm::mat4);
+
+    memcpy(bufferData + bufferHead, glm::value_ptr(view), sizeof(glm::mat4));
+    bufferHead += sizeof(glm::mat4);
+
+    memcpy(bufferData + bufferHead, glm::value_ptr(projection), sizeof(glm::mat4));
+    bufferHead += sizeof(glm::mat4);
+
+    glUnmapBuffer(GL_UNIFORM_BUFFER);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+    // Binding buffer ranges to uniform blocks
+    u32 blockOffset = 0;
+    u32 blockSize = sizeof(glm::mat4) * 3;
+    glBindBufferRange(GL_UNIFORM_BUFFER, BINDING(1), app->bufferHandle, blockOffset, blockSize);
 }
 
 void Render(App* app)
@@ -693,6 +842,9 @@ void Render(App* app)
             break;
         case Mode_3DModel:
             {
+                glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
                 Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
                 glUseProgram(texturedMeshProgram.handle);
 
@@ -722,30 +874,6 @@ void Render(App* app)
 }
 
 // NOT IN USE
-void OpenGLErrorGuard::checkGLError(const char* around, const char* message)
-{
-    GLenum err;
-    while ((err = glGetError()) != GL_NO_ERROR)
-    {
-        // Process/log the error.
-        std::string errStr = "GL Error: ";
-        switch (err)
-        {
-        case GL_INVALID_ENUM: errStr += "GL_INVALID_ENUM"; break;
-        case GL_INVALID_VALUE: errStr += "GL_INVALID_VALUE"; break;
-        case GL_INVALID_OPERATION: errStr += "GL_INVALID_OPERATION"; break;
-        case GL_STACK_OVERFLOW: errStr += "GL_STACK_OVERFLOW"; break;
-        case GL_STACK_UNDERFLOW: errStr += "GL_STACK_UNDERFLOW"; break;
-        case GL_OUT_OF_MEMORY: errStr += "GL_OUT_OF_MEMORY"; break;
-        case GL_INVALID_FRAMEBUFFER_OPERATION: errStr += "GL_INVALID_FRAMEBUFFER_OPERATION"; break;
-        default: break;
-        }
-        errStr += (" around %s of %s.", around, message);
-        LogString(errStr.c_str());
-    }
-}
-
-// NOT IN USE
 void GLAPIENTRY
 MessageCallback(GLenum source,
                 GLenum type,
@@ -759,4 +887,3 @@ MessageCallback(GLenum source,
             (type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""),
             type, severity, message);
 }
-

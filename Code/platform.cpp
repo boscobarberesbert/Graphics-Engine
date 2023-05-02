@@ -43,6 +43,8 @@ void OnGlfwMouseMoveEvent(GLFWwindow* window, double xpos, double ypos)
     app->input.mouseDelta.y = ypos - app->input.mousePos.y;
     app->input.mousePos.x = xpos;
     app->input.mousePos.y = ypos;
+
+    MouseCallback(app, xpos, ypos); // Update camera on mouse move
 }
 
 void OnGlfwMouseEvent(GLFWwindow* window, int button, int event, int modifiers)
@@ -66,6 +68,8 @@ void OnGlfwMouseEvent(GLFWwindow* window, int button, int event, int modifiers)
 void OnGlfwScrollEvent(GLFWwindow* window, double xoffset, double yoffset)
 {
     // Nothing do yet... maybe zoom in/out in the future?
+    App* app = (App*)glfwGetWindowUserPointer(window);
+    ScrollCallback(app, xoffset, yoffset); // Update camera on mouse scroll
 }
 
 void OnGlfwKeyboardEvent(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -106,6 +110,8 @@ void OnGlfwResizeFramebuffer(GLFWwindow* window, int width, int height)
 {
     App* app = (App*)glfwGetWindowUserPointer(window);
     app->displaySize = vec2(width, height);
+
+    FramebufferSizeCallback(window, width, height); // Resize frame buffer based on window size
 }
 
 void OnGlfwCloseWindow(GLFWwindow* window)
