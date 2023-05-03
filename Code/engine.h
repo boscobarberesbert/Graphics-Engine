@@ -80,7 +80,8 @@ struct OpenGLInfo
     std::string vendor;
     std::string glslVersion;
     u32 numExtensions;
-    std::vector<std::string> extensions;;
+    std::vector<std::string> extensions;
+    bool showExtensions;
 };
 
 struct VertexV3V2
@@ -124,6 +125,14 @@ struct Material
     u32         specularTextureIdx;
     u32         normalsTextureIdx;
     u32         bumpTextureIdx;
+};
+
+struct Entity
+{
+    glm::mat4 worldMatrix;
+    u32       modelIndex;
+    u32       localParamsOffset;
+    u32       localParamsSize;
 };
 
 enum Mode
@@ -186,6 +195,10 @@ struct App
     // Model
     u32 model;
 
+    // Uniform buffer memory management
+    GLint maxUniformBufferSize;
+    GLint uniformBlockAlignment;
+
     // Uniform buffer handle
     GLuint bufferHandle;
 
@@ -197,6 +210,8 @@ struct App
     float lastY = displaySize.y / 2.0f;
 
     bool firstMouse = true; // To check if it's the first time we receive mouse input
+
+    std::vector<Entity> entities;
 };
 
 void Init(App* app);
