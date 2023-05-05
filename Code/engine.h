@@ -8,7 +8,7 @@
 #include <glad/glad.h>
 
 #include "GLFW/glfw3.h"
-#include "Camera.h"
+#include "camera.h"
 
 typedef glm::vec2  vec2;
 typedef glm::vec3  vec3;
@@ -73,6 +73,13 @@ struct Program
     VertexShaderLayout vertexInputLayout;
 };
 
+enum Mode
+{
+    Mode_3DModel,
+    Mode_TexturedQuad,
+    Mode_Count
+};
+
 struct OpenGLInfo
 {
     std::string version;
@@ -135,11 +142,27 @@ struct Entity
     u32       localParamsSize;
 };
 
-enum Mode
+struct Buffer
 {
-    Mode_3DModel,
-    Mode_TexturedQuad,
-    Mode_Count
+    GLuint handle;
+    GLenum type;
+    u32    size;
+    u32    head;
+    void* data; // mapped data
+};
+
+enum LightType
+{
+    LightType_Directional,
+    LightType_Point
+};
+
+struct Light
+{
+    LightType type;
+    vec3      color;
+    vec3      direction;
+    vec3      position;
 };
 
 struct App
@@ -199,8 +222,11 @@ struct App
     GLint maxUniformBufferSize;
     GLint uniformBlockAlignment;
 
-    // Uniform buffer handle
-    GLuint bufferHandle;
+    Buffer cbuffer;
+
+    // Global params
+    u32 globalParamsOffset;
+    u32 globalParamsSize;
 
     // Camera
     Camera camera;
@@ -209,9 +235,14 @@ struct App
     float lastX = displaySize.x / 2.0f;
     float lastY = displaySize.y / 2.0f;
 
-    bool firstMouse = true; // To check if it's the first time we receive mouse input
+    // To check if it's the first time we receive mouse input
+    bool firstMouse = true;
 
+    // List of entities
     std::vector<Entity> entities;
+
+    // List of lights
+    std::vector<Light> lights;
 };
 
 void Init(App* app);
@@ -221,6 +252,8 @@ void Gui(App* app);
 void Update(App* app);
 
 void Render(App* app);
+
+u32 LoadTexture2D(App* app, const char* filepath);
 
 void FramebufferSizeCallback(GLFWwindow* window, int width, int height); // Window resize
 

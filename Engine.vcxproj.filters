@@ -19,6 +19,12 @@
     <Filter Include="Engine\OpenGLErrorGuard">
       <UniqueIdentifier>{ab088f13-eeaf-4318-9450-2350b5b89974}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Engine\BufferManagement">
+      <UniqueIdentifier>{b4f3d467-051f-477b-b3f2-f313073a1ce9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Engine\AssimpModelLoading">
+      <UniqueIdentifier>{175532b4-76a7-4db6-8067-89e447a932d4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ThirdParty\imgui-docking\imgui.cpp">
@@ -54,8 +60,14 @@
     <ClCompile Include="ThirdParty\stb\stb.cpp">
       <Filter>Stb</Filter>
     </ClCompile>
-    <ClCompile Include="Code\OpenGLErrorGuard.cpp">
+    <ClCompile Include="Code\opengl_error_guard.cpp">
       <Filter>Engine\OpenGLErrorGuard</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\buffer_management.cpp">
+      <Filter>Engine\BufferManagement</Filter>
+    </ClCompile>
+    <ClCompile Include="Code\assimp_model_loading.cpp">
+      <Filter>Engine\AssimpModelLoading</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -98,11 +110,17 @@
     <ClInclude Include="ThirdParty\stb\stb_image.h">
       <Filter>Stb</Filter>
     </ClInclude>
-    <ClInclude Include="Code\OpenGLErrorGuard.h">
+    <ClInclude Include="Code\opengl_error_guard.h">
       <Filter>Engine\OpenGLErrorGuard</Filter>
     </ClInclude>
-    <ClInclude Include="Code\Camera.h">
+    <ClInclude Include="Code\camera.h">
       <Filter>Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="Code\buffer_management.h">
+      <Filter>Engine\BufferManagement</Filter>
+    </ClInclude>
+    <ClInclude Include="Code\assimp_model_loading.h">
+      <Filter>Engine\AssimpModelLoading</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

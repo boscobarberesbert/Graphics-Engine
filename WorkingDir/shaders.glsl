@@ -3,6 +3,14 @@
 ///////////////////////////////////////////////////////////////////////
 #ifdef TEXTURED_GEOMETRY
 
+struct Light
+{
+    unsigned int type;
+    vec3      color;
+    vec3      direction;
+    vec3      position;
+};
+
 #if defined(VERTEX) ///////////////////////////////////////////////////
 
 // TODO: Write your vertex shader here
@@ -13,54 +21,55 @@ layout(location = 2) in vec2 aTexCoord;
 //layout(location = 4) in vec2 aBitangent;
 
 // Uniform blocks
+layout(binding = 0, std140) uniform GlobalParams
+{
+    vec3         uCameraPosition;
+    unsigned int uLightCount;
+    Light        uLight[16];
+};
+
 layout(binding = 1, std140) uniform LocalParams
 {
-    mat4 model;
-    mat4 view;
-    mat4 projection;
+    mat4 uWorldMatrix;
+    mat4 uWorldViewProjectionMatrix;
 };
 
 out vec2 vTexCoord;
 out vec3 vPosition; // In worldspace
 out vec3 vNormal;   // In worldspace
-out vec3 vViewDir;
+out vec3 vViewDir;  // In worldspace
 
 void main()
 {
     vTexCoord = aTexCoord;
-
-    // We will usually not define the clipping scale manually...
-    // it is usually computed by the projection matrix. Because
-    // we are not passing uniform transforms yet, we increase
-    // the clipping scale so that Patrick fits the screen.
-    //float clippingScale = 5.0;
-
-    //gl_Position = vec4(aPosition, clippingScale);
-
-    // Patrick looks away from the camera by default, so I flip it here.
-    //gl_Position.z = -gl_Position.z;
-
-    vPosition = vec3(model * vec4(aPosition, 1.0));
-    vNormal   = vec3(model * vec4(aNormal, 0.0));
-
-    // note that we read the multiplication from right to left
-    gl_Position = projection * view * model * vec4(aPosition, 1.0);
+    vPosition = vec3(uWorldMatrix * vec4(aPosition, 1.0));
+    vNormal   = vec3(uWorldMatrix * vec4(aNormal, 0.0));
+    vViewDir = uCameraPosition - vPosition;
+    gl_Position = uWorldViewProjectionMatrix * vec4(aPosition, 1.0);
 }
 
 #elif defined(FRAGMENT) ///////////////////////////////////////////////
 
 // TODO: Write your fragment shader here
 in vec2 vTexCoord;
-in vec3 vPosition;
-in vec3 vNormal;
-in vec3 vViewDir;
+in vec3 vPosition; // In worldspace
+in vec3 vNormal;   // In worldspace
+in vec3 vViewDir;  // In worldspace
 
 uniform sampler2D uTexture;
+
+layout(binding = 0, std140) uniform GlobalParams
+{
+    vec3         uCameraPosition;
+    unsigned int uLightCount;
+    Light        uLight[16];
+};
 
 layout(location = 0) out vec4 oColor;
 
 void main()
 {
+    // TODO: Sum all light contributions up to set oColor final value
     oColor = texture(uTexture, vTexCoord);
 }
 

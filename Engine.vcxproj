@@ -19,8 +19,10 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Code\assimp_model_loading.cpp" />
+    <ClCompile Include="Code\buffer_management.cpp" />
     <ClCompile Include="Code\engine.cpp" />
-    <ClCompile Include="Code\OpenGLErrorGuard.cpp" />
+    <ClCompile Include="Code\opengl_error_guard.cpp" />
     <ClCompile Include="Code\platform.cpp" />
     <ClCompile Include="ThirdParty\glad\include\glad\glad.c" />
     <ClCompile Include="ThirdParty\imgui-docking\imgui.cpp" />
@@ -33,9 +35,11 @@
     <ClCompile Include="ThirdParty\stb\stb.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Code\Camera.h" />
+    <ClInclude Include="Code\assimp_model_loading.h" />
+    <ClInclude Include="Code\buffer_management.h" />
+    <ClInclude Include="Code\camera.h" />
     <ClInclude Include="Code\engine.h" />
-    <ClInclude Include="Code\OpenGLErrorGuard.h" />
+    <ClInclude Include="Code\opengl_error_guard.h" />
     <ClInclude Include="Code\platform.h" />
     <ClInclude Include="ThirdParty\glad\include\glad\glad.h" />
     <ClInclude Include="ThirdParty\glad\include\glad\khrplatform.h" />

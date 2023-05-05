@@ -1,4 +1,4 @@
-#include "OpenGLErrorGuard.h"
+#include "opengl_error_guard.h"
 #include "platform.h"
 #include <glad/glad.h>
 
