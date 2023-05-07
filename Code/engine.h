@@ -10,6 +10,8 @@
 #include "GLFW/glfw3.h"
 #include "camera.h"
 
+#include <map>
+
 typedef glm::vec2  vec2;
 typedef glm::vec3  vec3;
 typedef glm::vec4  vec4;
@@ -75,7 +77,7 @@ struct Program
 
 enum Mode
 {
-    Mode_3DModel,
+    Mode_TexturedMesh,
     Mode_TexturedQuad,
     Mode_Count
 };
@@ -134,12 +136,21 @@ struct Material
     u32         bumpTextureIdx;
 };
 
+enum EntityType
+{
+    EntityType_TexturedGeometry,
+    EntityType_TexturedMesh,
+    EntityType_LightSource
+};
+
 struct Entity
 {
     glm::mat4 worldMatrix;
     u32       modelIndex;
     u32       localParamsOffset;
     u32       localParamsSize;
+
+    EntityType type;
 };
 
 struct Buffer
@@ -163,6 +174,11 @@ struct Light
     vec3      color;
     vec3      direction;
     vec3      position;
+};
+
+struct LightSource : Entity
+{
+    u32 lightIndex;
 };
 
 struct App
@@ -190,6 +206,7 @@ struct App
     // program indices
     u32 texturedGeometryProgramIdx;
     u32 texturedMeshProgramIdx;
+    u32 lightSourceProgramIdx;
     
     // texture indices
     u32 diceTexIdx;
@@ -216,7 +233,7 @@ struct App
     OpenGLInfo openglInfo;
 
     // Model
-    u32 model;
+    std::map<std::string, u32> modelIndexes;
 
     // Uniform buffer memory management
     GLint maxUniformBufferSize;

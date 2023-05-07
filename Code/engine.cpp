@@ -413,9 +413,13 @@ void Init(App* app)
     // - programs (and retrieve uniform indices)
     // - textures
 
-    app->texturedMeshProgramIdx = LoadProgram(app, "shaders.glsl", "TEXTURED_GEOMETRY");
+    app->mode = Mode_TexturedMesh;
+
+    app->texturedMeshProgramIdx = LoadProgram(app, "shaders.glsl", "TEXTURED_MESH");
     //Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
     //app->programUniformTexture = glGetUniformLocation(texturedMeshProgram.handle, "uTexture");
+
+    app->lightSourceProgramIdx = LoadProgram(app, "light_source.glsl", "LIGHT_SOURCE");
 
     // Creating uniform buffers
     glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &app->maxUniformBufferSize);
@@ -432,9 +436,12 @@ void Init(App* app)
     app->normalTexIdx = LoadTexture2D(app, "color_normal.png");
     app->magentaTexIdx = LoadTexture2D(app, "color_magenta.png");
     
-    app->model = LoadModel(app, "Patrick/Patrick.obj");
+    // Load models
+    u32 patrickModelIndex = LoadModel(app, "Patrick/Patrick.obj");
+    app->modelIndexes.insert(std::make_pair("patrick", patrickModelIndex));
 
-    app->mode = Mode_3DModel;
+    u32 sphereModelIndex = LoadModel(app, "Primitives/sphere.obj");
+    app->modelIndexes.insert(std::make_pair("sphere", sphereModelIndex));
 
     // Camera setup
     app->camera = Camera(glm::vec3(0.0f, 0.0f, 10.0f));
@@ -443,28 +450,40 @@ void Init(App* app)
     Entity patrick;
     patrick.worldMatrix = mat4(1.0f);
     patrick.worldMatrix = glm::translate(patrick.worldMatrix, vec3(0.0f, 0.0f, 0.0f));
-    patrick.modelIndex = app->model;
+    patrick.modelIndex = app->modelIndexes["patrick"];
+    patrick.type = EntityType_TexturedMesh;
     app->entities.push_back(patrick);
     
     Entity patrick1;
     patrick1.worldMatrix = mat4(1.0f);
     patrick1.worldMatrix = glm::translate(patrick1.worldMatrix, vec3(-5.0f, 0.0f, -5.0f));
-    patrick1.modelIndex = app->model;
+    patrick1.modelIndex = app->modelIndexes["patrick"];
+    patrick1.type = EntityType_TexturedMesh;
     app->entities.push_back(patrick1);
 
     Entity patrick2;
     patrick2.worldMatrix = mat4(1.0f);
     patrick2.worldMatrix = glm::translate(patrick2.worldMatrix, vec3(5.0f, 0.0f, -5.0f));
-    patrick2.modelIndex = app->model;
+    patrick2.modelIndex = app->modelIndexes["patrick"];
+    patrick2.type = EntityType_TexturedMesh;
     app->entities.push_back(patrick2);
 
     // Lights setup
     Light light;
-    light.type = LightType_Directional;
-    light.color = vec3(0.0f);
+    light.type = LightType_Point;
+    light.color = vec3(1.0f);
     light.direction = vec3(5.0f, 5.0f, 5.0f);
-    light.position = vec3(5.0f, 5.0f, 5.0f);
+    light.position = vec3(0.0f, 0.0f, 5.0f);
     app->lights.push_back(light);
+
+    LightSource lightSource;
+    lightSource.worldMatrix = mat4(1.0f);
+    lightSource.worldMatrix = glm::translate(lightSource.worldMatrix, light.position);
+    lightSource.worldMatrix = glm::scale(lightSource.worldMatrix, vec3(0.025f));
+    lightSource.modelIndex = app->modelIndexes["sphere"];
+    lightSource.lightIndex = 0;
+    lightSource.type = EntityType_LightSource;
+    app->entities.push_back(lightSource);
 }
 
 void Gui(App* app)
@@ -521,6 +540,12 @@ void Update(App* app)
 
     // You can handle app->input keyboard/mouse here
     ProcessInput(app, glfwGetCurrentContext());
+
+    // Move the light source around the scene over time
+    app->lights[0].position.x = sin(glfwGetTime()) * 5.0f;
+    app->lights[0].position.y = sin(glfwGetTime() / 2) * 5.0f;
+    app->entities[3].worldMatrix = glm::translate(mat4(1.0f), app->lights[0].position);
+    app->entities[3].worldMatrix = glm::scale(app->entities[3].worldMatrix, vec3(0.025f));
 
     // View matrix
     mat4 view;
@@ -646,7 +671,7 @@ void Render(App* app)
                 glUseProgram(0);
             }
             break;
-        case Mode_3DModel:
+        case Mode_TexturedMesh:
             {
                 glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -661,10 +686,24 @@ void Render(App* app)
                     // Binding buffer ranges to uniform blocks
                     glBindBufferRange(GL_UNIFORM_BUFFER, BINDING(1), app->cbuffer.handle, entity.localParamsOffset, entity.localParamsSize);
 
-                    Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
+                    /*Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];*/
+                    Program texturedMeshProgram;
+                    switch (entity.type)
+                    {
+                    case EntityType_TexturedGeometry:
+                        texturedMeshProgram = app->programs[app->texturedMeshProgramIdx]; // TODO: Add a textured geometry program (shader)
+                        break;
+                    case EntityType_TexturedMesh:
+                        texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
+                        break;
+                    case EntityType_LightSource:
+                        texturedMeshProgram = app->programs[app->lightSourceProgramIdx];
+                        break;
+                    default: break;
+                    }
                     glUseProgram(texturedMeshProgram.handle);
 
-                    Model& model = app->models[app->model];
+                    Model& model = app->models[entity.modelIndex];
                     Mesh& mesh = app->meshes[model.meshIdx];
 
                     for (u32 i = 0; i < mesh.submeshes.size(); ++i)

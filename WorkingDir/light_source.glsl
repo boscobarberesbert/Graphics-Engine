@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
-#ifdef TEXTURED_MESH
+#ifdef LIGHT_SOURCE
 
 struct Light
 {
@@ -43,7 +43,7 @@ void main()
 {
     vTexCoord = aTexCoord;
     vPosition = vec3(uWorldMatrix * vec4(aPosition, 1.0));
-    vNormal   = mat3(transpose(inverse(uWorldMatrix))) * aNormal; // TODO: Calculate the normal matrix on the CPU and send it to the shaders via a uniform before drawing (just like the model matrix)
+    vNormal   = vec3(uWorldMatrix * vec4(aNormal, 0.0));
     vViewDir = uCameraPosition - vPosition;
     gl_Position = uWorldViewProjectionMatrix * vec4(aPosition, 1.0);
 }
@@ -70,41 +70,8 @@ layout(location = 0) out vec4 oColor;
 void main()
 {
     // TODO: Sum all light contributions up to set oColor final value
-    vec3 objectColor = vec3(texture(uTexture, vTexCoord)); // Texture color
-    vec3 lightColor = uLight[0].color;
-
-    // Ambient
-    float ambientStrength = 0.1;
-    vec3 ambient = ambientStrength * lightColor;
-
-    // Diffuse
-    vec3 norm = normalize(vNormal);
-    vec3 lightDir;
-    switch (uLight[0].type)
-    {
-        case 0:
-            lightDir = normalize(-uLight[0].direction);
-            break;
-        case 1:
-            lightDir = normalize(uLight[0].position - vPosition);
-        default:
-            break;
-    }
-
-    float diff = max(dot(norm, lightDir), 0.0);
-    vec3 diffuse = diff * lightColor;
-
-    // Specular
-    float specularStrength = 0.5;
-
-    vec3 viewDir = normalize(vViewDir);
-    vec3 reflectDir = reflect(-lightDir, norm);
-
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-    vec3 specular = specularStrength * spec * lightColor;
-
-    vec3 result = (ambient + diffuse + specular) * objectColor;
-    oColor = vec4(result, 1.0);
+    //oColor = texture(uTexture, vTexCoord);
+    oColor = vec4(uLight[0].color, 1.0f);
 }
 
 #endif
