@@ -134,6 +134,21 @@ struct Material
     u32         specularTextureIdx;
     u32         normalsTextureIdx;
     u32         bumpTextureIdx;
+
+    vec3        ambient;
+    vec3        diffuse;
+    vec3        specular;
+    f32         shininess;
+
+    Material() {}
+
+    Material(vec3 ambient, vec3 diffuse, vec3 specular, f32 shininess)
+    {
+        this->ambient = ambient;
+        this->diffuse = diffuse;
+        this->specular = specular;
+        this->shininess = shininess * 128.0f;
+    }
 };
 
 enum EntityType
@@ -151,6 +166,7 @@ struct Entity
     u32       localParamsSize;
 
     EntityType type;
+    u32 materialIndex;
 };
 
 struct Buffer
@@ -174,6 +190,10 @@ struct Light
     vec3      color;
     vec3      direction;
     vec3      position;
+
+    vec3 ambient;
+    vec3 diffuse;
+    vec3 specular;
 };
 
 struct LightSource : Entity
@@ -234,6 +254,9 @@ struct App
 
     // Model
     std::map<std::string, u32> modelIndexes;
+
+    // Materials
+    std::map<std::string, u32> materialIndexes;
 
     // Uniform buffer memory management
     GLint maxUniformBufferSize;

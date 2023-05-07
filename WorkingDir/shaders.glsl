@@ -9,6 +9,10 @@ struct Light
     vec3         color;
     vec3         direction;
     vec3         position;
+
+    vec3         ambient;
+    vec3         diffuse;
+    vec3         specular;
 };
 
 #if defined(VERTEX) ///////////////////////////////////////////////////
@@ -50,6 +54,14 @@ void main()
 
 #elif defined(FRAGMENT) ///////////////////////////////////////////////
 
+struct Material
+{
+    vec3 ambient;
+    vec3 diffuse;
+    vec3 specular;
+    float shininess;
+};
+
 // TODO: Write your fragment shader here
 in vec2 vTexCoord;
 in vec3 vPosition; // In worldspace
@@ -57,6 +69,7 @@ in vec3 vNormal;   // In worldspace
 in vec3 vViewDir;  // In worldspace
 
 uniform sampler2D uTexture;
+uniform Material uMaterial;
 
 layout(binding = 0, std140) uniform GlobalParams
 {
@@ -73,37 +86,28 @@ void main()
     vec3 objectColor = vec3(texture(uTexture, vTexCoord)); // Texture color
     vec3 lightColor = uLight[0].color;
 
-    // Ambient
-    float ambientStrength = 0.1;
-    vec3 ambient = ambientStrength * lightColor;
+    // ambient
+    vec3 ambient = uLight[0].ambient * uMaterial.ambient;
 
-    // Diffuse
+    // diffuse
     vec3 norm = normalize(vNormal);
     vec3 lightDir;
     switch (uLight[0].type)
     {
-        case 0:
-            lightDir = normalize(-uLight[0].direction);
-            break;
-        case 1:
-            lightDir = normalize(uLight[0].position - vPosition);
-        default:
-            break;
+        case 0: lightDir = normalize(-uLight[0].direction); break;
+        case 1: lightDir = normalize(uLight[0].position - vPosition);
+        default: break;
     }
-
     float diff = max(dot(norm, lightDir), 0.0);
-    vec3 diffuse = diff * lightColor;
+    vec3 diffuse = uLight[0].diffuse * (diff * uMaterial.diffuse);
 
-    // Specular
-    float specularStrength = 0.5;
-
+    // specular
     vec3 viewDir = normalize(vViewDir);
     vec3 reflectDir = reflect(-lightDir, norm);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), uMaterial.shininess);
+    vec3 specular = uLight[0].specular * (spec * uMaterial.specular);
 
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-    vec3 specular = specularStrength * spec * lightColor;
-
-    vec3 result = (ambient + diffuse + specular) * objectColor;
+    vec3 result = ambient + diffuse + specular;
     oColor = vec4(result, 1.0);
 }
 

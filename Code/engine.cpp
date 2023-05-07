@@ -12,6 +12,7 @@
 
 #include "assimp_model_loading.h"
 #include "buffer_management.h"
+#include "material.h"
 
 #define BINDING(b) b
 
@@ -415,11 +416,7 @@ void Init(App* app)
 
     app->mode = Mode_TexturedMesh;
 
-    app->texturedMeshProgramIdx = LoadProgram(app, "shaders.glsl", "TEXTURED_MESH");
-    //Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
-    //app->programUniformTexture = glGetUniformLocation(texturedMeshProgram.handle, "uTexture");
-
-    app->lightSourceProgramIdx = LoadProgram(app, "light_source.glsl", "LIGHT_SOURCE");
+    SetupDefaultMaterials(app);
 
     // Creating uniform buffers
     glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &app->maxUniformBufferSize);
@@ -429,6 +426,15 @@ void Init(App* app)
     glBindBuffer(GL_UNIFORM_BUFFER, app->cbuffer.handle);
     glBufferData(GL_UNIFORM_BUFFER, app->maxUniformBufferSize, NULL, GL_STREAM_DRAW);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+    // Camera setup
+    app->camera = Camera(glm::vec3(0.0f, 0.0f, 10.0f));
+
+    app->texturedMeshProgramIdx = LoadProgram(app, "shaders.glsl", "TEXTURED_MESH");
+    //Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
+    //app->programUniformTexture = glGetUniformLocation(texturedMeshProgram.handle, "uTexture");
+
+    app->lightSourceProgramIdx = LoadProgram(app, "light_source.glsl", "LIGHT_SOURCE");
 
     app->diceTexIdx = LoadTexture2D(app, "dice.png");
     app->whiteTexIdx = LoadTexture2D(app, "color_white.png");
@@ -443,15 +449,13 @@ void Init(App* app)
     u32 sphereModelIndex = LoadModel(app, "Primitives/sphere.obj");
     app->modelIndexes.insert(std::make_pair("sphere", sphereModelIndex));
 
-    // Camera setup
-    app->camera = Camera(glm::vec3(0.0f, 0.0f, 10.0f));
-
     // Entities setup
     Entity patrick;
     patrick.worldMatrix = mat4(1.0f);
     patrick.worldMatrix = glm::translate(patrick.worldMatrix, vec3(0.0f, 0.0f, 0.0f));
     patrick.modelIndex = app->modelIndexes["patrick"];
     patrick.type = EntityType_TexturedMesh;
+    patrick.materialIndex = app->materialIndexes["gold"];
     app->entities.push_back(patrick);
     
     Entity patrick1;
@@ -459,6 +463,7 @@ void Init(App* app)
     patrick1.worldMatrix = glm::translate(patrick1.worldMatrix, vec3(-5.0f, 0.0f, -5.0f));
     patrick1.modelIndex = app->modelIndexes["patrick"];
     patrick1.type = EntityType_TexturedMesh;
+    patrick1.materialIndex = app->materialIndexes["silver"];
     app->entities.push_back(patrick1);
 
     Entity patrick2;
@@ -466,6 +471,7 @@ void Init(App* app)
     patrick2.worldMatrix = glm::translate(patrick2.worldMatrix, vec3(5.0f, 0.0f, -5.0f));
     patrick2.modelIndex = app->modelIndexes["patrick"];
     patrick2.type = EntityType_TexturedMesh;
+    patrick2.materialIndex = app->materialIndexes["bronze"];
     app->entities.push_back(patrick2);
 
     // Lights setup
@@ -474,6 +480,12 @@ void Init(App* app)
     light.color = vec3(1.0f);
     light.direction = vec3(5.0f, 5.0f, 5.0f);
     light.position = vec3(0.0f, 0.0f, 5.0f);
+    //light.ambient = vec3(0.2f, 0.2f, 0.2f);
+    //light.diffuse = vec3(0.5f, 0.5f, 0.5f); // darken diffuse light a bit
+    //light.specular = vec3(1.0f, 1.0f, 1.0f);
+    light.ambient = vec3(1.0f);
+    light.diffuse = vec3(1.0f);
+    light.specular = vec3(1.0f);
     app->lights.push_back(light);
 
     LightSource lightSource;
@@ -547,6 +559,14 @@ void Update(App* app)
     app->entities[3].worldMatrix = glm::translate(mat4(1.0f), app->lights[0].position);
     app->entities[3].worldMatrix = glm::scale(app->entities[3].worldMatrix, vec3(0.025f));
 
+    // Change the light's colors over time by changing the light's ambient and diffuse colors
+    /*app->lights[0].color.x = sin(glfwGetTime() * 2.0f);
+    app->lights[0].color.y = sin(glfwGetTime() * 0.7f);
+    app->lights[0].color.z = sin(glfwGetTime() * 1.3f);
+
+    app->lights[0].diffuse = app->lights[0].color * glm::vec3(0.5f);
+    app->lights[0].ambient = app->lights[0].diffuse * glm::vec3(0.2f);*/
+
     // View matrix
     mat4 view;
     switch (app->camera.cameraMode)
@@ -605,6 +625,10 @@ void Update(App* app)
         PushVec3(app->cbuffer, light.color);
         PushVec3(app->cbuffer, light.direction);
         PushVec3(app->cbuffer, light.position);
+
+        PushVec3(app->cbuffer, light.ambient);
+        PushVec3(app->cbuffer, light.diffuse);
+        PushVec3(app->cbuffer, light.specular);
     }
 
     app->globalParamsSize = app->cbuffer.head - app->globalParamsOffset;
@@ -699,7 +723,8 @@ void Render(App* app)
                     case EntityType_LightSource:
                         texturedMeshProgram = app->programs[app->lightSourceProgramIdx];
                         break;
-                    default: break;
+                    default:
+                        break;
                     }
                     glUseProgram(texturedMeshProgram.handle);
 
@@ -717,6 +742,22 @@ void Render(App* app)
                         glActiveTexture(GL_TEXTURE0);
                         glBindTexture(GL_TEXTURE_2D, app->textures[submeshMaterial.albedoTextureIdx].handle);
                         glUniform1i(app->programUniformTexture, 0);
+
+                        switch (entity.type)
+                        {
+                        case EntityType_TexturedMesh:
+                            {
+                                // Set material
+                                Material material = app->materials[entity.materialIndex];
+                                glUniform3f(glGetUniformLocation(texturedMeshProgram.handle, "uMaterial.ambient"), material.ambient.x, material.ambient.y, material.ambient.z);
+                                glUniform3f(glGetUniformLocation(texturedMeshProgram.handle, "uMaterial.diffuse"), material.diffuse.x, material.diffuse.y, material.diffuse.z);
+                                glUniform3f(glGetUniformLocation(texturedMeshProgram.handle, "uMaterial.specular"), material.specular.x, material.specular.y, material.specular.z);
+                                glUniform1f(glGetUniformLocation(texturedMeshProgram.handle, "uMaterial.shininess"), material.shininess);
+                            }
+                            break;
+                        default:
+                            break;
+                        }
 
                         Submesh& submesh = mesh.submeshes[i];
                         glDrawElements(GL_TRIANGLES, submesh.indices.size(), GL_UNSIGNED_INT, (void*)(u64)submesh.indexOffset);

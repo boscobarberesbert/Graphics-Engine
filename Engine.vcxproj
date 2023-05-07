@@ -39,6 +39,7 @@
     <ClInclude Include="Code\buffer_management.h" />
     <ClInclude Include="Code\camera.h" />
     <ClInclude Include="Code\engine.h" />
+    <ClInclude Include="Code\material.h" />
     <ClInclude Include="Code\opengl_error_guard.h" />
     <ClInclude Include="Code\platform.h" />
     <ClInclude Include="ThirdParty\glad\include\glad\glad.h" />
