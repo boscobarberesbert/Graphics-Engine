@@ -133,5 +133,11 @@
     <None Include="WorkingDir\light_source.glsl">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="WorkingDir\shaders2.glsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="WorkingDir\shaders3.glsl">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

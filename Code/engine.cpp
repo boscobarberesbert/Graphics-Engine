@@ -139,7 +139,7 @@ u32 LoadProgram(App* app, const char* filepath, const char* programName)
 Image LoadImage(const char* filename)
 {
     Image img = {};
-    stbi_set_flip_vertically_on_load(true);
+    //stbi_set_flip_vertically_on_load(true);
     img.pixels = stbi_load(filename, &img.size.x, &img.size.y, &img.nchannels, 0);
     if (img.pixels)
     {
@@ -165,6 +165,7 @@ GLuint CreateTexture2DFromImage(Image image)
 
     switch (image.nchannels)
     {
+        case 1: dataFormat = GL_RED; internalFormat = GL_R8; break;
         case 3: dataFormat = GL_RGB; internalFormat = GL_RGB8; break;
         case 4: dataFormat = GL_RGBA; internalFormat = GL_RGBA8; break;
         default: ELOG("LoadTexture2D() - Unsupported number of channels");
@@ -371,6 +372,11 @@ void ScrollCallback(App* app, double xoffset, double yoffset)
     app->camera.ProcessMouseScroll(static_cast<float>(yoffset));
 }
 
+void CreateEntity(App* app, Entity entity)
+{
+    app->entities.push_back(entity);
+}
+
 void Init(App* app)
 {
     // NOT IN USE
@@ -430,72 +436,63 @@ void Init(App* app)
     // Camera setup
     app->camera = Camera(glm::vec3(0.0f, 0.0f, 10.0f));
 
-    app->texturedMeshProgramIdx = LoadProgram(app, "shaders.glsl", "TEXTURED_MESH");
-    //Program& texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
-    //app->programUniformTexture = glGetUniformLocation(texturedMeshProgram.handle, "uTexture");
+    u32 texturedMeshProgramIdx = LoadProgram(app, "shaders.glsl", "TEXTURED_GEOMETRY");
+    app->programIndexes.insert(std::make_pair("shaders", texturedMeshProgramIdx));
+    Program& texturedMeshProgram = app->programs[texturedMeshProgramIdx];
+    texturedMeshProgram.programUniformTexture = glGetUniformLocation(texturedMeshProgram.handle, "uMaterial.diffuse");
 
-    app->lightSourceProgramIdx = LoadProgram(app, "light_source.glsl", "LIGHT_SOURCE");
+    u32 specularTexturedMeshProgramIdx = LoadProgram(app, "shaders2.glsl", "TEXTURED_GEOMETRY");
+    app->programIndexes.insert(std::make_pair("shaders2", specularTexturedMeshProgramIdx));
+    Program& specularTexturedMeshProgram = app->programs[specularTexturedMeshProgramIdx];
+    specularTexturedMeshProgram.programUniformTexture = glGetUniformLocation(specularTexturedMeshProgram.handle, "uMaterial.diffuse");
+    specularTexturedMeshProgram.programUniformSpecularMap = glGetUniformLocation(specularTexturedMeshProgram.handle, "uMaterial.specular");
+
+    u32 emissiveTexturedMeshProgramIdx = LoadProgram(app, "shaders3.glsl", "TEXTURED_GEOMETRY");
+    app->programIndexes.insert(std::make_pair("shaders3", emissiveTexturedMeshProgramIdx));
+    Program& emissiveTexturedMeshProgram = app->programs[emissiveTexturedMeshProgramIdx];
+    emissiveTexturedMeshProgram.programUniformTexture = glGetUniformLocation(emissiveTexturedMeshProgram.handle, "uMaterial.diffuse");
+    emissiveTexturedMeshProgram.programUniformEmissionMap = glGetUniformLocation(emissiveTexturedMeshProgram.handle, "uMaterial.emission");
+
+    u32 lightSourceProgramIdx = LoadProgram(app, "light_source.glsl", "LIGHT_SOURCE");
+    app->programIndexes.insert(std::make_pair("light source", lightSourceProgramIdx));
 
     app->diceTexIdx = LoadTexture2D(app, "dice.png");
     app->whiteTexIdx = LoadTexture2D(app, "color_white.png");
     app->blackTexIdx = LoadTexture2D(app, "color_black.png");
     app->normalTexIdx = LoadTexture2D(app, "color_normal.png");
     app->magentaTexIdx = LoadTexture2D(app, "color_magenta.png");
-    
+
+    Material sciFiWallMaterial;
+    sciFiWallMaterial.albedoTextureIdx = LoadTexture2D(app, "Materials/Sci-fi_Wall_011_SD/Sci-fi_Wall_011_basecolor.jpg");
+    sciFiWallMaterial.emissiveTextureIdx = LoadTexture2D(app, "Materials/Sci-fi_Wall_011_SD/Sci-fi_Wall_011_emissive.jpg");
+    sciFiWallMaterial.specular = vec3(1.0f);
+    sciFiWallMaterial.shininess = 0.5f * 128.0f;
+    app->materials.push_back(sciFiWallMaterial);
+    app->materialIndexes.insert(std::make_pair("sci-fi wall", app->materials.size() - 1));
+
     // Load models
+    stbi_set_flip_vertically_on_load(true);
     u32 patrickModelIndex = LoadModel(app, "Patrick/Patrick.obj");
     app->modelIndexes.insert(std::make_pair("patrick", patrickModelIndex));
+
+    stbi_set_flip_vertically_on_load(false);
+    u32 backpackModelIndex = LoadModel(app, "backpack/backpack.obj");
+    app->modelIndexes.insert(std::make_pair("backpack", backpackModelIndex));
 
     u32 sphereModelIndex = LoadModel(app, "Primitives/sphere.obj");
     app->modelIndexes.insert(std::make_pair("sphere", sphereModelIndex));
 
-    // Entities setup
-    Entity patrick;
-    patrick.worldMatrix = mat4(1.0f);
-    patrick.worldMatrix = glm::translate(patrick.worldMatrix, vec3(0.0f, 0.0f, 0.0f));
-    patrick.modelIndex = app->modelIndexes["patrick"];
-    patrick.type = EntityType_TexturedMesh;
-    patrick.materialIndex = app->materialIndexes["gold"];
-    app->entities.push_back(patrick);
-    
-    Entity patrick1;
-    patrick1.worldMatrix = mat4(1.0f);
-    patrick1.worldMatrix = glm::translate(patrick1.worldMatrix, vec3(-5.0f, 0.0f, -5.0f));
-    patrick1.modelIndex = app->modelIndexes["patrick"];
-    patrick1.type = EntityType_TexturedMesh;
-    patrick1.materialIndex = app->materialIndexes["silver"];
-    app->entities.push_back(patrick1);
+    // Scene setup
+    CreateEntity(app, TexturedMesh(app->modelIndexes["patrick"], app->programIndexes["shaders"], vec3(0.0f, 0.0f, 0.0f)));
+    CreateEntity(app, TexturedMesh(app->modelIndexes["patrick"], app->programIndexes["shaders"], vec3(-5.0f, 0.0f, -5.0f)));
+    CreateEntity(app, TexturedMesh(app->modelIndexes["patrick"], app->programIndexes["shaders"], vec3(5.0f, 0.0f, -5.0f)));
+    CreateEntity(app, TexturedMesh(app->modelIndexes["backpack"], app->programIndexes["shaders2"], vec3(0.0f, 0.0f, 2.5f)));
+    CreateEntity(app, Primitive(app->materialIndexes["sci-fi wall"], app->modelIndexes["sphere"], app->programIndexes["shaders3"], vec3(2.5f), vec3(0.0f), vec3(0.125f)));
 
-    Entity patrick2;
-    patrick2.worldMatrix = mat4(1.0f);
-    patrick2.worldMatrix = glm::translate(patrick2.worldMatrix, vec3(5.0f, 0.0f, -5.0f));
-    patrick2.modelIndex = app->modelIndexes["patrick"];
-    patrick2.type = EntityType_TexturedMesh;
-    patrick2.materialIndex = app->materialIndexes["bronze"];
-    app->entities.push_back(patrick2);
-
-    // Lights setup
-    Light light;
-    light.type = LightType_Point;
-    light.color = vec3(1.0f);
-    light.direction = vec3(5.0f, 5.0f, 5.0f);
-    light.position = vec3(0.0f, 0.0f, 5.0f);
-    //light.ambient = vec3(0.2f, 0.2f, 0.2f);
-    //light.diffuse = vec3(0.5f, 0.5f, 0.5f); // darken diffuse light a bit
-    //light.specular = vec3(1.0f, 1.0f, 1.0f);
-    light.ambient = vec3(1.0f);
-    light.diffuse = vec3(1.0f);
-    light.specular = vec3(1.0f);
+    Light light(LightType_Point, vec3(1.0f), vec3(5.0f), vec3(5.0f), vec3(0.2f), vec3(0.5f), vec3(1.0f));
     app->lights.push_back(light);
 
-    LightSource lightSource;
-    lightSource.worldMatrix = mat4(1.0f);
-    lightSource.worldMatrix = glm::translate(lightSource.worldMatrix, light.position);
-    lightSource.worldMatrix = glm::scale(lightSource.worldMatrix, vec3(0.025f));
-    lightSource.modelIndex = app->modelIndexes["sphere"];
-    lightSource.lightIndex = 0;
-    lightSource.type = EntityType_LightSource;
-    app->entities.push_back(lightSource);
+    CreateEntity(app, LightSource(0, app->modelIndexes["sphere"], app->modelIndexes["light source"], light.position, vec3(0.0f), vec3(0.025f)));
 }
 
 void Gui(App* app)
@@ -556,8 +553,8 @@ void Update(App* app)
     // Move the light source around the scene over time
     app->lights[0].position.x = sin(glfwGetTime()) * 5.0f;
     app->lights[0].position.y = sin(glfwGetTime() / 2) * 5.0f;
-    app->entities[3].worldMatrix = glm::translate(mat4(1.0f), app->lights[0].position);
-    app->entities[3].worldMatrix = glm::scale(app->entities[3].worldMatrix, vec3(0.025f));
+    app->entities[5].worldMatrix = glm::translate(mat4(1.0f), app->lights[0].position);
+    app->entities[5].worldMatrix = glm::scale(app->entities[5].worldMatrix, vec3(0.025f));
 
     // Change the light's colors over time by changing the light's ambient and diffuse colors
     /*app->lights[0].color.x = sin(glfwGetTime() * 2.0f);
@@ -714,17 +711,10 @@ void Render(App* app)
                     Program texturedMeshProgram;
                     switch (entity.type)
                     {
-                    case EntityType_TexturedGeometry:
-                        texturedMeshProgram = app->programs[app->texturedMeshProgramIdx]; // TODO: Add a textured geometry program (shader)
-                        break;
-                    case EntityType_TexturedMesh:
-                        texturedMeshProgram = app->programs[app->texturedMeshProgramIdx];
-                        break;
-                    case EntityType_LightSource:
-                        texturedMeshProgram = app->programs[app->lightSourceProgramIdx];
-                        break;
-                    default:
-                        break;
+                    case EntityType_Primitive:   texturedMeshProgram = app->programs[entity.programIndex];                 break;
+                    case EntityType_Model:       texturedMeshProgram = app->programs[entity.programIndex];                 break;
+                    case EntityType_LightSource: texturedMeshProgram = app->programs[app->programIndexes["light source"]]; break;
+                    default: break;
                     }
                     glUseProgram(texturedMeshProgram.handle);
 
@@ -739,20 +729,70 @@ void Render(App* app)
                         u32 submeshMaterialIdx = model.materialIdx[i];
                         Material& submeshMaterial = app->materials[submeshMaterialIdx];
 
-                        glActiveTexture(GL_TEXTURE0);
-                        glBindTexture(GL_TEXTURE_2D, app->textures[submeshMaterial.albedoTextureIdx].handle);
-                        glUniform1i(app->programUniformTexture, 0);
-
                         switch (entity.type)
                         {
-                        case EntityType_TexturedMesh:
+                        case EntityType_Primitive:
                             {
-                                // Set material
                                 Material material = app->materials[entity.materialIndex];
-                                glUniform3f(glGetUniformLocation(texturedMeshProgram.handle, "uMaterial.ambient"), material.ambient.x, material.ambient.y, material.ambient.z);
-                                glUniform3f(glGetUniformLocation(texturedMeshProgram.handle, "uMaterial.diffuse"), material.diffuse.x, material.diffuse.y, material.diffuse.z);
-                                glUniform3f(glGetUniformLocation(texturedMeshProgram.handle, "uMaterial.specular"), material.specular.x, material.specular.y, material.specular.z);
-                                glUniform1f(glGetUniformLocation(texturedMeshProgram.handle, "uMaterial.shininess"), material.shininess);
+                                if (texturedMeshProgram.handle == app->programs[app->programIndexes["shaders"]].handle)
+                                {
+                                    glActiveTexture(GL_TEXTURE0);
+                                    glBindTexture(GL_TEXTURE_2D, app->textures[material.albedoTextureIdx].handle);
+                                    glUniform1i(texturedMeshProgram.programUniformTexture, 0);
+
+                                    glUniform3fv(glGetUniformLocation(texturedMeshProgram.handle, "uMaterial.specular"), 1, glm::value_ptr(material.specular));
+                                    glUniform1f(glGetUniformLocation(texturedMeshProgram.handle, "uMaterial.shininess"), material.shininess);
+                                }
+                                else if (texturedMeshProgram.handle == app->programs[app->programIndexes["shaders2"]].handle)
+                                {
+                                    glActiveTexture(GL_TEXTURE0);
+                                    glBindTexture(GL_TEXTURE_2D, app->textures[material.albedoTextureIdx].handle);
+                                    glUniform1i(texturedMeshProgram.programUniformTexture, 0);
+
+                                    glActiveTexture(GL_TEXTURE1);
+                                    glBindTexture(GL_TEXTURE_2D, app->textures[material.specularTextureIdx].handle);
+                                    glUniform1i(texturedMeshProgram.programUniformSpecularMap, 1);
+
+                                    glUniform1f(glGetUniformLocation(texturedMeshProgram.handle, "uMaterial.shininess"), material.shininess);
+                                }
+                                if (texturedMeshProgram.handle == app->programs[app->programIndexes["shaders3"]].handle)
+                                {
+                                    glActiveTexture(GL_TEXTURE0);
+                                    glBindTexture(GL_TEXTURE_2D, app->textures[material.albedoTextureIdx].handle);
+                                    glUniform1i(texturedMeshProgram.programUniformTexture, 0);
+
+                                    glUniform3fv(glGetUniformLocation(texturedMeshProgram.handle, "uMaterial.specular"), 1, glm::value_ptr(material.specular));
+                                    glUniform1f(glGetUniformLocation(texturedMeshProgram.handle, "uMaterial.shininess"), material.shininess);
+
+                                    glActiveTexture(GL_TEXTURE1);
+                                    glBindTexture(GL_TEXTURE_2D, app->textures[material.emissiveTextureIdx].handle);
+                                    glUniform1i(texturedMeshProgram.programUniformEmissionMap, 1);
+                                }
+                            }
+                            break;
+                        case EntityType_Model:
+                            {
+                                if (texturedMeshProgram.handle == app->programs[app->programIndexes["shaders"]].handle)
+                                {
+                                    glActiveTexture(GL_TEXTURE0);
+                                    glBindTexture(GL_TEXTURE_2D, app->textures[submeshMaterial.albedoTextureIdx].handle);
+                                    glUniform1i(texturedMeshProgram.programUniformTexture, 0);
+
+                                    glUniform3fv(glGetUniformLocation(texturedMeshProgram.handle, "uMaterial.specular"), 1, glm::value_ptr(submeshMaterial.specular));
+                                    glUniform1f(glGetUniformLocation(texturedMeshProgram.handle, "uMaterial.shininess"), submeshMaterial.shininess);
+                                }
+                                else if (texturedMeshProgram.handle == app->programs[app->programIndexes["shaders2"]].handle)
+                                {
+                                    glActiveTexture(GL_TEXTURE0);
+                                    glBindTexture(GL_TEXTURE_2D, app->textures[submeshMaterial.albedoTextureIdx].handle);
+                                    glUniform1i(texturedMeshProgram.programUniformTexture, 0);
+
+                                    glActiveTexture(GL_TEXTURE1);
+                                    glBindTexture(GL_TEXTURE_2D, app->textures[submeshMaterial.specularTextureIdx].handle);
+                                    glUniform1i(texturedMeshProgram.programUniformSpecularMap, 1);
+
+                                    glUniform1f(glGetUniformLocation(texturedMeshProgram.handle, "uMaterial.shininess"), submeshMaterial.shininess);
+                                }
                             }
                             break;
                         default:

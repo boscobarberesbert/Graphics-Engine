@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
-#ifdef TEXTURED_MESH
+#ifdef TEXTURED_GEOMETRY
 
 struct Light
 {
@@ -56,10 +56,9 @@ void main()
 
 struct Material
 {
-    vec3 ambient;
-    vec3 diffuse;
-    vec3 specular;
-    float shininess;
+    sampler2D diffuse;
+    vec3      specular;
+    float     shininess;
 };
 
 // TODO: Write your fragment shader here
@@ -68,7 +67,7 @@ in vec3 vPosition; // In worldspace
 in vec3 vNormal;   // In worldspace
 in vec3 vViewDir;  // In worldspace
 
-uniform sampler2D uTexture;
+//uniform sampler2D uTexture;
 uniform Material uMaterial;
 
 layout(binding = 0, std140) uniform GlobalParams
@@ -83,11 +82,11 @@ layout(location = 0) out vec4 oColor;
 void main()
 {
     // TODO: Sum all light contributions up to set oColor final value
-    vec3 objectColor = vec3(texture(uTexture, vTexCoord)); // Texture color
+    vec3 objectColor = vec3(texture(uMaterial.diffuse, vTexCoord)); // Texture color
     vec3 lightColor = uLight[0].color;
 
     // ambient
-    vec3 ambient = uLight[0].ambient * uMaterial.ambient;
+    vec3 ambient = uLight[0].ambient * objectColor;
 
     // diffuse
     vec3 norm = normalize(vNormal);
@@ -95,16 +94,16 @@ void main()
     switch (uLight[0].type)
     {
         case 0: lightDir = normalize(-uLight[0].direction); break;
-        case 1: lightDir = normalize(uLight[0].position - vPosition);
+        case 1: lightDir = normalize(uLight[0].position - vPosition); break;
         default: break;
     }
     float diff = max(dot(norm, lightDir), 0.0);
-    vec3 diffuse = uLight[0].diffuse * (diff * uMaterial.diffuse);
+    vec3 diffuse = uLight[0].diffuse * diff * objectColor;
 
     // specular
     vec3 viewDir = normalize(vViewDir);
     vec3 reflectDir = reflect(-lightDir, norm);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), uMaterial.shininess);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), uMaterial.shininess == 0 ? 32.0 : uMaterial.shininess);
     vec3 specular = uLight[0].specular * (spec * uMaterial.specular);
 
     vec3 result = ambient + diffuse + specular;

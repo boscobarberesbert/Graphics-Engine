@@ -104,6 +104,9 @@ void ProcessAssimpMaterial(App* app, aiMaterial* material, Material& myMaterial,
     myMaterial.emissive = vec3(emissiveColor.r, emissiveColor.g, emissiveColor.b);
     myMaterial.smoothness = shininess / 256.0f;
 
+    myMaterial.specular = vec3(specularColor.r, specularColor.g, specularColor.b);
+    myMaterial.shininess = shininess;
+
     aiString aiFilename;
     if (material->GetTextureCount(aiTextureType_DIFFUSE) > 0)
     {

@@ -73,6 +73,10 @@ struct Program
     u64                lastWriteTimestamp; // What is this for?
 
     VertexShaderLayout vertexInputLayout;
+
+    GLuint programUniformTexture;     // Location of the texture uniform in the shader
+    GLuint programUniformSpecularMap; // Location of the specular map uniform in the shader
+    GLuint programUniformEmissionMap; // Location of the emission map uniform in the shader
 };
 
 enum Mode
@@ -125,6 +129,16 @@ struct Mesh
 
 struct Material
 {
+    Material() {}
+
+    Material(vec3 ambient, vec3 diffuse, vec3 specular, f32 shininess)
+    {
+        this->ambient = ambient;
+        this->diffuse = diffuse;
+        this->specular = specular;
+        this->shininess = shininess * 128.0f;
+    }
+
     std::string name;
     vec3        albedo;
     vec3        emissive;
@@ -139,34 +153,128 @@ struct Material
     vec3        diffuse;
     vec3        specular;
     f32         shininess;
-
-    Material() {}
-
-    Material(vec3 ambient, vec3 diffuse, vec3 specular, f32 shininess)
-    {
-        this->ambient = ambient;
-        this->diffuse = diffuse;
-        this->specular = specular;
-        this->shininess = shininess * 128.0f;
-    }
 };
 
 enum EntityType
 {
-    EntityType_TexturedGeometry,
-    EntityType_TexturedMesh,
+    EntityType_Primitive,
+    EntityType_Model,
     EntityType_LightSource
 };
 
 struct Entity
 {
+    Entity(vec3 position = vec3(0.0f), vec3 rotation = vec3(0.0f), vec3 scale = vec3(1.0f))
+    {
+        // TODO: Set default model and program
+
+        this->SetTransform(position, rotation, scale);
+    }
+
+    Entity(u32 modelIndex, u32 programIndex, vec3 position = vec3(0.0f), vec3 rotation = vec3(0.0f), vec3 scale = vec3(1.0f))
+    {
+        this->modelIndex = modelIndex;
+        this->programIndex = programIndex;
+
+        this->SetTransform(position, rotation, scale);
+    }
+
+    void SetTransform(vec3 position, vec3 rotation, vec3 scale)
+    {
+        this->worldMatrix = mat4(1.0f);
+
+        this->SetPosition(position);
+        this->SetRotation(rotation);
+        this->SetScale(scale);
+    }
+
+    inline void SetPosition(vec3 position) { this->worldMatrix[3] = glm::vec4(position, 1.0f); } // Set the new position of the matrix without changing its scale or rotation
+    void SetRotation(vec3 rotation)
+    {
+        SetAxisRotation(rotation.x, vec3(1.0f, 0.0f, 0.0f));
+        SetAxisRotation(rotation.y, vec3(0.0f, 1.0f, 0.0f));
+        SetAxisRotation(rotation.z, vec3(0.0f, 0.0f, 1.0f));
+    }
+    void SetAxisRotation(f32 angle, vec3 axis)
+    {
+        glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f), angle, axis);
+
+        // Get the original scale and translation of the matrix
+        glm::vec3 scale = glm::vec3(glm::length(this->worldMatrix[0]), glm::length(this->worldMatrix[1]), glm::length(this->worldMatrix[2]));
+        glm::vec3 translation = glm::vec3(this->worldMatrix[3]);
+
+        // Combine the rotation matrix with the original scale and translation
+        this->worldMatrix = glm::mat4(glm::mat3(this->worldMatrix) * glm::mat3(rotationMatrix));
+        this->worldMatrix[0] *= scale[0];
+        this->worldMatrix[1] *= scale[1];
+        this->worldMatrix[2] *= scale[2];
+        this->worldMatrix[3] = glm::vec4(translation, 1.0f);
+    }
+    void SetScale(vec3 scale)
+    {
+        // Get the original rotation and translation of the matrix
+        glm::mat3 rotation = glm::mat3(this->worldMatrix);
+        glm::vec3 translation = glm::vec3(this->worldMatrix[3]);
+
+        // Create a new matrix with the new scale and the original rotation and translation
+        this->worldMatrix = glm::mat4(rotation);
+        this->worldMatrix[0] *= scale[0];
+        this->worldMatrix[1] *= scale[1];
+        this->worldMatrix[2] *= scale[2];
+        this->worldMatrix[3] = glm::vec4(translation, 1.0f);
+    }
+
+    inline void Translate(vec3 translate) { this->worldMatrix = glm::translate(mat4(1.0f), translate) * this->worldMatrix; }
+    void Rotate(vec3 rotate)
+    {
+        this->RotateAxis(rotate.x, vec3(1.0f, 0.0f, 0.0f));
+        this->RotateAxis(rotate.y, vec3(0.0f, 1.0f, 0.0f));
+        this->RotateAxis(rotate.z, vec3(0.0f, 0.0f, 1.0f));
+    }
+    inline void RotateAxis(f32 angle, vec3 axis) { this->worldMatrix = glm::rotate(angle, axis) * this->worldMatrix; }
+    inline void Scale(vec3 scale) { this->worldMatrix = glm::scale(mat4(1.0f), scale) * worldMatrix; }
+
     glm::mat4 worldMatrix;
     u32       modelIndex;
     u32       localParamsOffset;
     u32       localParamsSize;
 
+    u32        programIndex;
+    u32        materialIndex;
+    
     EntityType type;
-    u32 materialIndex;
+};
+
+struct Primitive : Entity
+{
+    Primitive(u32 materialIndex, u32 modelIndex, u32 programIndex, vec3 position = vec3(0.0f), vec3 rotation = vec3(0.0f), vec3 scale = vec3(1.0f)) :
+        Entity(modelIndex, programIndex, position, rotation, scale)
+    {
+        this->materialIndex = materialIndex;
+
+        type = EntityType_Primitive;
+    }
+};
+
+struct TexturedMesh : Entity
+{
+    TexturedMesh(u32 modelIndex, u32 programIndex, vec3 position = vec3(0.0f), vec3 rotation = vec3(0.0f), vec3 scale = vec3(1.0f)) :
+        Entity(modelIndex, programIndex, position, rotation, scale)
+    {
+        type = EntityType_Model;
+    }
+};
+
+struct LightSource : Entity
+{
+    LightSource(u32 lightIndex, u32 modelIndex, u32 programIndex, vec3 position, vec3 rotation, vec3 scale) : Entity(modelIndex, programIndex, position, rotation, scale)
+    {
+        this->lightIndex = lightIndex;
+
+        type = EntityType_LightSource;
+    }
+
+    u32 lightIndex;
 };
 
 struct Buffer
@@ -186,6 +294,19 @@ enum LightType
 
 struct Light
 {
+    Light(LightType type = LightType_Directional, vec3 color = vec3(1.0f), vec3 direction = vec3(0.0f, 0.0f, -1.0f), vec3 position = vec3(0.0f),
+        vec3 ambient = vec3(0.2f), vec3 diffuse = vec3(0.5f), vec3 specular = vec3(1.0f))
+    {
+        this->type      = type;
+        this->color     = color;
+        this->direction = direction;
+        this->position  = position;
+
+        this->ambient   = ambient;
+        this->diffuse   = diffuse;
+        this->specular  = specular;
+    }
+
     LightType type;
     vec3      color;
     vec3      direction;
@@ -194,11 +315,6 @@ struct Light
     vec3 ambient;
     vec3 diffuse;
     vec3 specular;
-};
-
-struct LightSource : Entity
-{
-    u32 lightIndex;
 };
 
 struct App
@@ -225,8 +341,7 @@ struct App
 
     // program indices
     u32 texturedGeometryProgramIdx;
-    u32 texturedMeshProgramIdx;
-    u32 lightSourceProgramIdx;
+    //u32 texturedMeshProgramIdx;
     
     // texture indices
     u32 diceTexIdx;
@@ -252,10 +367,13 @@ struct App
     // OpenGL information
     OpenGLInfo openglInfo;
 
-    // Model
+    // Model indexes
     std::map<std::string, u32> modelIndexes;
 
-    // Materials
+    // Program indexes
+    std::map<std::string, u32> programIndexes;
+
+    // Material indexes
     std::map<std::string, u32> materialIndexes;
 
     // Uniform buffer memory management
