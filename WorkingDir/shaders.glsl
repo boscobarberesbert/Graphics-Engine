@@ -8,11 +8,18 @@ struct Light
     unsigned int type;
     vec3         color;
     vec3         direction;
-    vec3         position;
+    vec3         position; // no longer necessary when using directional lights
 
     vec3         ambient;
     vec3         diffuse;
     vec3         specular;
+
+    float        constant;
+    float        linear;
+    float        quadratic;
+
+    float        cutOff;
+    float        outerCutOff;
 };
 
 #if defined(VERTEX) ///////////////////////////////////////////////////
@@ -93,8 +100,10 @@ void main()
     vec3 lightDir;
     switch (uLight[0].type)
     {
-        case 0: lightDir = normalize(-uLight[0].direction); break;
-        case 1: lightDir = normalize(uLight[0].position - vPosition); break;
+        case 0: lightDir = normalize(-uLight[0].direction); break;           // do directional light calculations
+        case 1:
+        case 2:
+        case 3: lightDir = normalize(uLight[0].position - vPosition); break; // do light calculations using the light's position
         default: break;
     }
     float diff = max(dot(norm, lightDir), 0.0);
@@ -105,6 +114,51 @@ void main()
     vec3 reflectDir = reflect(-lightDir, norm);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), uMaterial.shininess == 0 ? 32.0 : uMaterial.shininess);
     vec3 specular = uLight[0].specular * (spec * uMaterial.specular);
+
+    // attenuation
+    switch (uLight[0].type)
+    {
+        case 1: // if it's a pointlight, apply attenuation
+        case 2: // if it's a spotlight, apply attenuation
+        case 3: // if it's a flashlight, apply attenuation
+            {
+                // attenuation
+                float distance    = length(uLight[0].position - vPosition);
+                float attenuation = 1.0 / (uLight[0].constant + uLight[0].linear * distance +
+                                uLight[0].quadratic * (distance * distance));
+
+                ambient *= attenuation;
+                diffuse *= attenuation;
+                specular *= attenuation;
+            }
+            break;
+        default:
+            break;
+    }
+
+    // smooth/soft egdes (for spotlights and flashlights)
+    float intensity = 1.0; // TODO: Add a light intensity value
+    switch (uLight[0].type)
+    {
+        case 0:
+            break;
+        case 1:
+            break;
+        case 2: // if it's a spotlight, apply smooth/soft edges
+        case 3: // if it's a flashlight, apply smooth/soft edges
+            {
+                float theta   = dot(lightDir, normalize(-uLight[0].direction));
+                float epsilon = uLight[0].cutOff - uLight[0].outerCutOff;
+                intensity     = clamp((theta - uLight[0].outerCutOff) / epsilon, 0.0, 1.0);
+
+                // we'll leave ambient unaffected so we always have a little light.
+                diffuse  *= intensity;
+                specular *= intensity;
+            }
+            break;
+        default:
+            break;
+    }
 
     vec3 result = ambient + diffuse + specular;
     oColor = vec4(result, 1.0);

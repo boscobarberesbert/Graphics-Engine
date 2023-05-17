@@ -489,7 +489,7 @@ void Init(App* app)
     CreateEntity(app, TexturedMesh(app->modelIndexes["backpack"], app->programIndexes["shaders2"], vec3(0.0f, 0.0f, 2.5f)));
     CreateEntity(app, Primitive(app->materialIndexes["sci-fi wall"], app->modelIndexes["sphere"], app->programIndexes["shaders3"], vec3(2.5f), vec3(0.0f), vec3(0.125f)));
 
-    Light light(LightType_Point, vec3(1.0f), vec3(5.0f), vec3(5.0f), vec3(0.2f), vec3(0.5f), vec3(1.0f));
+    Light light(LightType_Flash, vec3(1.0f), vec3(-5.0f), vec3(5.0f), vec3(0.2f), vec3(0.5f), vec3(1.0f));
     app->lights.push_back(light);
 
     CreateEntity(app, LightSource(0, app->modelIndexes["sphere"], app->modelIndexes["light source"], light.position, vec3(0.0f), vec3(0.025f)));
@@ -620,12 +620,27 @@ void Update(App* app)
         Light& light = app->lights[i];
         PushUInt(app->cbuffer, light.type);
         PushVec3(app->cbuffer, light.color);
-        PushVec3(app->cbuffer, light.direction);
-        PushVec3(app->cbuffer, light.position);
+        if (light.type == LightType_Flash)
+        {
+            PushVec3(app->cbuffer, app->camera.front);
+            PushVec3(app->cbuffer, app->camera.position);
+        }
+        else
+        {
+            PushVec3(app->cbuffer, light.direction);
+            PushVec3(app->cbuffer, light.position);
+        }
 
         PushVec3(app->cbuffer, light.ambient);
         PushVec3(app->cbuffer, light.diffuse);
         PushVec3(app->cbuffer, light.specular);
+
+        PushFloat(app->cbuffer, light.constant);
+        PushFloat(app->cbuffer, light.linear);
+        PushFloat(app->cbuffer, light.quadratic);
+
+        PushFloat(app->cbuffer, glm::cos(glm::radians(light.cutOff)));
+        PushFloat(app->cbuffer, glm::cos(glm::radians(light.outerCutOff)));
     }
 
     app->globalParamsSize = app->cbuffer.head - app->globalParamsOffset;

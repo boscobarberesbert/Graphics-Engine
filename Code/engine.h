@@ -289,13 +289,17 @@ struct Buffer
 enum LightType
 {
     LightType_Directional,
-    LightType_Point
+    LightType_Point,
+    LightType_Spot,
+    LightType_Flash
 };
 
 struct Light
 {
     Light(LightType type = LightType_Directional, vec3 color = vec3(1.0f), vec3 direction = vec3(0.0f, 0.0f, -1.0f), vec3 position = vec3(0.0f),
-        vec3 ambient = vec3(0.2f), vec3 diffuse = vec3(0.5f), vec3 specular = vec3(1.0f))
+        vec3 ambient = vec3(0.2f), vec3 diffuse = vec3(0.5f), vec3 specular = vec3(1.0f),
+        float constant = 1.0f, float linear = 0.045f, float quadratic = 0.0075f,
+        float cutOff = 12.5f, float outerCutOff = 17.5f)
     {
         this->type      = type;
         this->color     = color;
@@ -305,6 +309,13 @@ struct Light
         this->ambient   = ambient;
         this->diffuse   = diffuse;
         this->specular  = specular;
+
+        this->constant  = constant;
+        this->linear    = linear;
+        this->quadratic = quadratic;
+
+        this->cutOff = cutOff;
+        this->outerCutOff = outerCutOff;
     }
 
     LightType type;
@@ -312,9 +323,16 @@ struct Light
     vec3      direction;
     vec3      position;
 
-    vec3 ambient;
-    vec3 diffuse;
-    vec3 specular;
+    vec3      ambient;
+    vec3      diffuse;
+    vec3      specular;
+
+    float     constant;
+    float     linear;
+    float     quadratic;
+
+    float     cutOff;
+    float     outerCutOff;
 };
 
 struct App
