@@ -234,10 +234,10 @@ struct Entity
     inline void RotateAxis(f32 angle, vec3 axis) { this->worldMatrix = glm::rotate(angle, axis) * this->worldMatrix; }
     inline void Scale(vec3 scale) { this->worldMatrix = glm::scale(mat4(1.0f), scale) * worldMatrix; }
 
-    glm::mat4 worldMatrix;
-    u32       modelIndex;
-    u32       localParamsOffset;
-    u32       localParamsSize;
+    glm::mat4  worldMatrix;
+    u32        modelIndex;
+    u32        localParamsOffset;
+    u32        localParamsSize;
 
     u32        programIndex;
     u32        materialIndex;

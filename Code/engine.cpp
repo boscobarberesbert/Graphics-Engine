@@ -489,10 +489,16 @@ void Init(App* app)
     CreateEntity(app, TexturedMesh(app->modelIndexes["backpack"], app->programIndexes["shaders2"], vec3(0.0f, 0.0f, 2.5f)));
     CreateEntity(app, Primitive(app->materialIndexes["sci-fi wall"], app->modelIndexes["sphere"], app->programIndexes["shaders3"], vec3(2.5f), vec3(0.0f), vec3(0.125f)));
 
-    Light light(LightType_Flash, vec3(1.0f), vec3(-5.0f), vec3(5.0f), vec3(0.2f), vec3(0.5f), vec3(1.0f));
-    app->lights.push_back(light);
+    Light pointLight(LightType_Point, vec3(1.0f), vec3(-5.0f), vec3(5.0f), vec3(0.2f), vec3(0.5f), vec3(1.0f));
+    app->lights.push_back(pointLight);
 
-    CreateEntity(app, LightSource(0, app->modelIndexes["sphere"], app->modelIndexes["light source"], light.position, vec3(0.0f), vec3(0.025f)));
+    Light directionalLight(LightType_Directional, vec3(1.0f), vec3(-5.0f), vec3(5.0f), vec3(0.2f), vec3(0.5f), vec3(1.0f));
+    app->lights.push_back(directionalLight);
+
+    Light flashLight(LightType_Flash, vec3(1.0f), vec3(-5.0f), vec3(5.0f), vec3(0.2f), vec3(0.5f), vec3(1.0f));
+    app->lights.push_back(flashLight);
+
+    CreateEntity(app, LightSource(0, app->modelIndexes["sphere"], app->modelIndexes["light source"], pointLight.position, vec3(0.0f), vec3(0.025f)));
 }
 
 void Gui(App* app)
@@ -557,12 +563,12 @@ void Update(App* app)
     app->entities[5].worldMatrix = glm::scale(app->entities[5].worldMatrix, vec3(0.025f));
 
     // Change the light's colors over time by changing the light's ambient and diffuse colors
-    /*app->lights[0].color.x = sin(glfwGetTime() * 2.0f);
+    app->lights[0].color.x = sin(glfwGetTime() * 2.0f);
     app->lights[0].color.y = sin(glfwGetTime() * 0.7f);
     app->lights[0].color.z = sin(glfwGetTime() * 1.3f);
 
     app->lights[0].diffuse = app->lights[0].color * glm::vec3(0.5f);
-    app->lights[0].ambient = app->lights[0].diffuse * glm::vec3(0.2f);*/
+    app->lights[0].ambient = app->lights[0].diffuse * glm::vec3(0.2f);
 
     // View matrix
     mat4 view;
