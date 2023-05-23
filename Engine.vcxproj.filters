@@ -25,6 +25,9 @@
     <Filter Include="Engine\AssimpModelLoading">
       <UniqueIdentifier>{175532b4-76a7-4db6-8067-89e447a932d4}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shaders\Deferred Shading">
+      <UniqueIdentifier>{c6901bc2-24c8-4335-9377-ea79e432e2dd}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ThirdParty\imgui-docking\imgui.cpp">
@@ -138,6 +141,12 @@
     </None>
     <None Include="WorkingDir\shaders3.glsl">
       <Filter>Shaders</Filter>
+    </None>
+    <None Include="WorkingDir\g_buffer.glsl">
+      <Filter>Shaders\Deferred Shading</Filter>
+    </None>
+    <None Include="WorkingDir\deferred_shading.glsl">
+      <Filter>Shaders\Deferred Shading</Filter>
     </None>
   </ItemGroup>
 </Project>

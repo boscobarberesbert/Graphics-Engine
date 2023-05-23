@@ -81,9 +81,10 @@ struct Program
 
 enum Mode
 {
-    Mode_TexturedMesh,
     Mode_TexturedQuad,
-    Mode_Count
+    Mode_Count,
+    Mode_TexturedMesh,
+    Mode_Deferred
 };
 
 struct OpenGLInfo
@@ -241,7 +242,7 @@ struct Entity
 
     u32        programIndex;
     u32        materialIndex;
-    
+
     EntityType type;
 };
 
@@ -335,6 +336,24 @@ struct Light
     float     outerCutOff;
 };
 
+struct Framebuffer
+{
+    unsigned int gPosition;
+    unsigned int gNormal;
+    unsigned int gAlbedoSpec;
+    unsigned int gDepth;
+};
+
+enum RenderMode
+{
+    RenderMode_FinalRender,
+    RenderMode_Normals,
+    //RenderMode_AmbientOcclusion,
+    RenderMode_Albedo,
+    RenderMode_Positions,
+    RenderMode_Specular
+};
+
 struct App
 {
     // Loop
@@ -371,6 +390,9 @@ struct App
     // Mode
     Mode mode;
 
+    // Render Mode
+    RenderMode renderMode;
+
     // Embedded geometry (in-editor simple meshes such as
     // a screen filling quad, a cube, a sphere...)
     GLuint embeddedVertices;
@@ -399,6 +421,7 @@ struct App
     GLint uniformBlockAlignment;
 
     Buffer cbuffer;
+    Buffer gBuffer;
 
     // Global params
     u32 globalParamsOffset;
@@ -419,6 +442,9 @@ struct App
 
     // List of lights
     std::vector<Light> lights;
+
+    // Framebuffer object handles
+    Framebuffer framebufferHandles;
 };
 
 void Init(App* app);
