@@ -58,6 +58,15 @@ layout(binding = 0, std140) uniform GlobalParams
     Light        uLight[16];
 };
 
+float near = 0.1; 
+float far  = 100.0; 
+  
+float LinearizeDepth(float depth) 
+{
+    float z = depth * 2.0 - 1.0; // back to NDC 
+    return (2.0 * near * far) / (far + near - z * (far - near));	
+}
+
 vec3 CalcDirLight(Light light, vec3 normal, vec3 viewDir, vec3 albedo, float specular, float shininess);
 vec3 CalcPointLight(Light light, vec3 normal, vec3 fragPos, vec3 viewDir, vec3 albedo, float specular, float shininess);
 vec3 CalcSpotLight(Light light, vec3 normal, vec3 fragPos, vec3 viewDir, vec3 albedo, float specular, float shininess);
@@ -70,6 +79,8 @@ void main()
     vec3 Albedo = texture(gAlbedoSpec, vTexCoord).rgb;
     float Specular = texture(gAlbedoSpec, vTexCoord).a;
     if (Specular == 1.0) Specular = 0.0;
+    float depthValue = texture(gPosition, vTexCoord).a;
+    float Depth = LinearizeDepth(depthValue) / far;
 
     // then calculate lighting as usual
     // TODO: Sum all light contributions up to set oColor final value
@@ -96,6 +107,7 @@ void main()
         case 2: result = Albedo; break;
         case 3: result = FragPos; break;
         case 4: result = vec3(Specular); break;
+        case 5: result = vec3(Depth); break;
     }
 
     oColor = vec4(result, 1.0);

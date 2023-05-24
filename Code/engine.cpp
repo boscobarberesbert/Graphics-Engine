@@ -367,7 +367,7 @@ void GenerateFramebuffer(App* app)
 {
     // Framebuffer
     // Creation and configuration of textures
-    // position color buffer
+    // position + depth color buffer
     glGenTextures(1, &app->framebufferHandles.gPosition);
     glBindTexture(GL_TEXTURE_2D, app->framebufferHandles.gPosition);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, app->displaySize.x, app->displaySize.y, 0, GL_RGBA, GL_FLOAT, NULL);
@@ -722,7 +722,7 @@ void Gui(App* app)
         // Show View Menu
         if (ImGui::BeginMenu("View"))
         {
-            ImGui::Combo("Render Mode", reinterpret_cast<int*>(&app->renderMode), "Final Render\0Normals\0Albedo\0Positions\0Specular");
+            ImGui::Combo("Render Mode", reinterpret_cast<int*>(&app->renderMode), "Final Render\0Normals\0Albedo\0Positions\0Specular\0Depth");
             ImGui::EndMenu();
         }
         ImGui::EndMainMenuBar();

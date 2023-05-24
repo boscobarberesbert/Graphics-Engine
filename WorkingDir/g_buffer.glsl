@@ -38,7 +38,7 @@ struct Material
 };
 
 // TODO: Write your fragment shader here
-layout(location = 0) out vec3 gPosition;   // Fragment positions
+layout(location = 0) out vec4 gPosition;   // Fragment positions, depth
 layout(location = 1) out vec3 gNormal;     // Normals
 layout(location = 2) out vec4 gAlbedoSpec; // Albedo, specular
 
@@ -51,13 +51,15 @@ uniform Material uMaterial;
 void main()
 {
     // store the fragment position vector in the first gbuffer texture
-    gPosition = vPosition;
+    gPosition.rgb = vPosition;
     // also store the per-fragment normals into the gbuffer
     gNormal = normalize(vNormal);
     // and the diffuse per-fragment color
     gAlbedoSpec.rgb = texture(uMaterial.diffuse, vTexCoord).rgb;
     // store specular intensity in gAlbedoSpec's alpha component
     gAlbedoSpec.a = texture(uMaterial.specular, vTexCoord).r;
+    // depth value
+    gPosition.a = gl_FragCoord.z;
 }
 
 #endif
