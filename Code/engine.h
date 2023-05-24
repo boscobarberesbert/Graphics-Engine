@@ -464,3 +464,5 @@ void FramebufferSizeCallback(GLFWwindow* window, int width, int height); // Wind
 void MouseCallback(App* app, double xpos, double ypos);                  // Mouse Input (Move - Drag)
 
 void ScrollCallback(App* app, double xoffset, double yoffset);           // Mouse Input (Scroll - Wheel)
+
+void GenerateFramebuffer(App* app);                                      // Framebuffer (G-Buffer) generation

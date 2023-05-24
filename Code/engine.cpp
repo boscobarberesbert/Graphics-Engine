@@ -443,7 +443,7 @@ void CreateLightSource(App* app, Light light)
 
 // Creation of textures and framebuffer object
 // configure g-buffer framebuffer
-void CreateFramebuffer(App* app)
+void GenerateFramebuffer(App* app)
 {
     // Framebuffer
     // Creation and configuration of textures
@@ -581,7 +581,7 @@ void Init(App* app)
     glBufferData(GL_UNIFORM_BUFFER, app->maxUniformBufferSize, NULL, GL_STREAM_DRAW);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
-    CreateFramebuffer(app);
+    GenerateFramebuffer(app);
 
     // Camera setup
     app->camera = Camera(glm::vec3(0.0f, 0.0f, 10.0f));

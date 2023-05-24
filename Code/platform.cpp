@@ -112,6 +112,7 @@ void OnGlfwResizeFramebuffer(GLFWwindow* window, int width, int height)
     app->displaySize = vec2(width, height);
 
     FramebufferSizeCallback(window, width, height); // Resize frame buffer based on window size
+    GenerateFramebuffer(app);                       // Recalculate frame buffer
 }
 
 void OnGlfwCloseWindow(GLFWwindow* window)
