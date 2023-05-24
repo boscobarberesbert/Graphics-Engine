@@ -419,6 +419,28 @@ void CreateEntity(App* app, Entity entity)
     app->entities.push_back(entity);
 }
 
+void CreateLightSource(App* app, Light light)
+{
+    switch (light.type)
+    {
+    case LightType_Directional:
+        CreateEntity(app, LightSource(app->lights.size(), app->modelIndexes["cube"], app->modelIndexes["light source"], light.position, vec3(0.0f), vec3(0.025f)));
+        break;
+    case LightType_Point:
+        CreateEntity(app, LightSource(app->lights.size(), app->modelIndexes["sphere"], app->modelIndexes["light source"], light.position, vec3(0.0f), vec3(0.025f)));
+        break;
+    case LightType_Spot:
+        CreateEntity(app, LightSource(app->lights.size(), app->modelIndexes["sphere"], app->modelIndexes["light source"], light.position, vec3(0.0f), vec3(0.025f)));
+        break;
+    case LightType_Flash:
+        break;
+    default:
+        break;
+    }
+
+    app->lights.push_back(light);
+}
+
 // Creation of textures and framebuffer object
 // configure g-buffer framebuffer
 void CreateFramebuffer(App* app)
@@ -623,6 +645,9 @@ void Init(App* app)
     u32 backpackModelIndex = LoadModel(app, "backpack/backpack.obj");
     app->modelIndexes.insert(std::make_pair("backpack", backpackModelIndex));
 
+    u32 cubeModelIndex = LoadModel(app, "Primitives/cube.obj");
+    app->modelIndexes.insert(std::make_pair("cube", cubeModelIndex));
+
     u32 sphereModelIndex = LoadModel(app, "Primitives/sphere.obj");
     app->modelIndexes.insert(std::make_pair("sphere", sphereModelIndex));
 
@@ -631,20 +656,23 @@ void Init(App* app)
     //CreateEntity(app, TexturedMesh(app->modelIndexes["patrick"], app->programIndexes["shaders"], vec3(-5.0f, 0.0f, -5.0f)));
     //CreateEntity(app, TexturedMesh(app->modelIndexes["patrick"], app->programIndexes["shaders"], vec3(5.0f, 0.0f, -5.0f)));
     //CreateEntity(app, TexturedMesh(app->modelIndexes["backpack"], app->programIndexes["shaders2"], vec3(0.0f, 0.0f, 2.5f)));
-    CreateEntity(app, TexturedMesh(app->modelIndexes["backpack"], app->programIndexes["g buffer"], vec3(0.0f, 0.0f, 2.5f)));
+    CreateEntity(app, TexturedMesh(app->modelIndexes["backpack"], app->programIndexes["g buffer"], vec3(-5.0f, 0.0f, -5.0f)));
+    CreateEntity(app, TexturedMesh(app->modelIndexes["backpack"], app->programIndexes["g buffer"], vec3(0.0f, 0.0f, -5.0f)));
+    CreateEntity(app, TexturedMesh(app->modelIndexes["backpack"], app->programIndexes["g buffer"], vec3(5.0f, 0.0f, -5.0f)));
+    CreateEntity(app, TexturedMesh(app->modelIndexes["backpack"], app->programIndexes["g buffer"], vec3(-5.0f, 0.0f, 0.0f)));
+    CreateEntity(app, TexturedMesh(app->modelIndexes["backpack"], app->programIndexes["g buffer"], vec3(0.0f)));
+    CreateEntity(app, TexturedMesh(app->modelIndexes["backpack"], app->programIndexes["g buffer"], vec3(5.0f, 0.0f, 0.0f)));
+    CreateEntity(app, TexturedMesh(app->modelIndexes["backpack"], app->programIndexes["g buffer"], vec3(-5.0f, 0.0f, 5.0f)));
+    CreateEntity(app, TexturedMesh(app->modelIndexes["backpack"], app->programIndexes["g buffer"], vec3(0.0f, 0.0f, 5.0f)));
+    CreateEntity(app, TexturedMesh(app->modelIndexes["backpack"], app->programIndexes["g buffer"], vec3(5.0f, 0.0f, 5.0f)));
     //CreateEntity(app, Primitive(app->materialIndexes["sci-fi wall"], app->modelIndexes["sphere"], app->programIndexes["shaders3"], vec3(2.5f), vec3(0.0f), vec3(0.125f)));
 
-    Light pointLight(LightType_Point, vec3(1.0f), vec3(-5.0f), vec3(5.0f), vec3(0.2f), vec3(0.5f), vec3(1.0f));
-    app->lights.push_back(pointLight);
-
-    Light directionalLight(LightType_Directional, vec3(1.0f), vec3(-5.0f), vec3(5.0f), vec3(0.2f), vec3(1.0f), vec3(1.0f));
-    app->lights.push_back(directionalLight);
-
-    Light flashLight(LightType_Flash, vec3(1.0f), vec3(-5.0f), vec3(5.0f), vec3(0.2f), vec3(1.0f), vec3(1.0f));
-    app->lights.push_back(flashLight);
-
-    // TODO: CreateLight method
-    CreateEntity(app, LightSource(0, app->modelIndexes["sphere"], app->modelIndexes["light source"], pointLight.position, vec3(0.0f), vec3(0.025f)));
+    CreateLightSource(app, Light(LightType_Point));
+    CreateLightSource(app, Light(LightType_Point, vec3(1.0f), vec3(0.0f, -1.0f, 0.0f), vec3(0.0f, 5.0f, 0.0f)));
+    CreateLightSource(app, Light(LightType_Point, vec3(1.0f), vec3(0.0f, 1.0f, 0.0f), vec3(0.0f, -5.0f, 0.0f)));
+    CreateLightSource(app, Light(LightType_Directional, vec3(1.0f, 0.65f, 0.0f), vec3(1.0f), vec3(-5.0f), vec3(0.2f), vec3(1.0f, 0.65f, 0.0f), vec3(1.0f)));
+    CreateLightSource(app, Light(LightType_Directional, vec3(0.25f, 0.88f, 0.82f), vec3(-1.0f), vec3(5.0f), vec3(0.2f), vec3(0.25f, 0.88f, 0.82f), vec3(1.0f)));
+    CreateLightSource(app, Light(LightType_Flash, vec3(1.0f), vec3(0.0f), vec3(0.0f), vec3(0.2f), vec3(1.0f), vec3(1.0f)));
 }
 
 void Gui(App* app)
@@ -722,8 +750,8 @@ void Update(App* app)
     // Move the light source around the scene over time
     app->lights[0].position.x = sin(glfwGetTime()) * 5.0f;
     app->lights[0].position.y = sin(glfwGetTime() / 2) * 5.0f;
-    app->entities[1].worldMatrix = glm::translate(mat4(1.0f), app->lights[0].position);
-    app->entities[1].worldMatrix = glm::scale(app->entities[1].worldMatrix, vec3(0.025f));
+    app->entities[9].worldMatrix = glm::translate(mat4(1.0f), app->lights[0].position);
+    app->entities[9].worldMatrix = glm::scale(app->entities[9].worldMatrix, vec3(0.025f));
 
     // Change the light's colors over time by changing the light's ambient and diffuse colors
     app->lights[0].color.x = sin(glfwGetTime() * 2.0f);
@@ -1081,7 +1109,8 @@ void Render(App* app)
                 glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // write to default framebuffer
                 glBlitFramebuffer(0, 0, app->displaySize.x, app->displaySize.y, 0, 0, app->displaySize.x, app->displaySize.y, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
                 glBindFramebuffer(GL_FRAMEBUFFER, 0);
-                // now render all light cubes with forward rendering as we'd normally do
+                // now render all light entitiesaa with forward rendering as we'd normally do
+                u32 lightIndex = 0;
                 for (u16 i = 0; i < app->entities.size(); ++i)
                 {
                     Entity entity = app->entities.at(i);
@@ -1102,9 +1131,13 @@ void Render(App* app)
                             GLuint vao = FindVAO(mesh, i, lightSourceProgram);
                             glBindVertexArray(vao);
 
+                            glUniform3fv(glGetUniformLocation(lightSourceProgram.handle, "uLightColor"), 1, glm::value_ptr(app->lights[lightIndex].color));
+
                             Submesh& submesh = mesh.submeshes[i];
                             glDrawElements(GL_TRIANGLES, submesh.indices.size(), GL_UNSIGNED_INT, (void*)(u64)submesh.indexOffset);
                         }
+
+                        ++lightIndex;
                     }
                 }
             }

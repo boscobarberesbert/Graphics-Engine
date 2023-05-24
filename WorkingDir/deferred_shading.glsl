@@ -39,7 +39,7 @@ struct Light
 };
 
 // TODO: Write your fragment shader here
-out vec4 oColor;
+layout(location = 0) out vec4 oColor;
 
 in vec2 vTexCoord;
 
