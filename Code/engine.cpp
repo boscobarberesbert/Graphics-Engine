@@ -361,86 +361,6 @@ mat4 TransformPositionScale(const vec3& pos, const vec3& scaleFactors)
     return transform;
 }
 
-// glfw: whenever the window size changed (by OS or user resize) this callback function executes
-void FramebufferSizeCallback(GLFWwindow* window, int width, int height)
-{
-    // make sure the viewport matches the new window dimensions; note that width and 
-    // height will be significantly larger than specified on retina displays.
-    glViewport(0, 0, width, height);
-}
-
-// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
-// Low level GLFW key handling is done in platform.h
-void ProcessInput(App* app, GLFWwindow* window)
-{
-    if (app->input.keys[K_ESCAPE] == BUTTON_PRESSED)
-        app->isRunning = false;
-
-    if (app->input.keys[K_W] == BUTTON_PRESSED)
-        app->camera.ProcessKeyboard(FORWARD, app->deltaTime);
-    if (app->input.keys[K_S] == BUTTON_PRESSED)
-        app->camera.ProcessKeyboard(BACKWARD, app->deltaTime);
-    if (app->input.keys[K_A] == BUTTON_PRESSED)
-        app->camera.ProcessKeyboard(CAM_LEFT, app->deltaTime);
-    if (app->input.keys[K_D] == BUTTON_PRESSED)
-        app->camera.ProcessKeyboard(CAM_RIGHT, app->deltaTime);
-}
-
-// glfw: whenever the mouse moves, this callback is called
-void MouseCallback(App* app, double xposIn, double yposIn)
-{
-    float xpos = static_cast<float>(xposIn);
-    float ypos = static_cast<float>(yposIn);
-
-    if (app->firstMouse) // initially set to true
-    {
-        app->lastX = xpos;
-        app->lastY = ypos;
-        app->firstMouse = false;
-    }
-
-    float xoffset = xpos - app->lastX;
-    float yoffset = app->lastY - ypos; // reversed since y-coordinates go from bottom to top
-
-    app->lastX = xpos;
-    app->lastY = ypos;
-
-    app->camera.ProcessMouseMovement(xoffset, yoffset);
-}
-
-// glfw: whenever the mouse scroll wheel scrolls, this callback is called
-void ScrollCallback(App* app, double xoffset, double yoffset)
-{
-    app->camera.ProcessMouseScroll(static_cast<float>(yoffset));
-}
-
-void CreateEntity(App* app, Entity entity)
-{
-    app->entities.push_back(entity);
-}
-
-void CreateLightSource(App* app, Light light)
-{
-    switch (light.type)
-    {
-    case LightType_Directional:
-        CreateEntity(app, LightSource(app->lights.size(), app->modelIndexes["cube"], app->modelIndexes["light source"], light.position, vec3(0.0f), vec3(0.025f)));
-        break;
-    case LightType_Point:
-        CreateEntity(app, LightSource(app->lights.size(), app->modelIndexes["sphere"], app->modelIndexes["light source"], light.position, vec3(0.0f), vec3(0.025f)));
-        break;
-    case LightType_Spot:
-        CreateEntity(app, LightSource(app->lights.size(), app->modelIndexes["sphere"], app->modelIndexes["light source"], light.position, vec3(0.0f), vec3(0.025f)));
-        break;
-    case LightType_Flash:
-        break;
-    default:
-        break;
-    }
-
-    app->lights.push_back(light);
-}
-
 // Creation of textures and framebuffer object
 // configure g-buffer framebuffer
 void GenerateFramebuffer(App* app)
@@ -522,6 +442,89 @@ void GenerateFramebuffer(App* app)
     unsigned int attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
     glDrawBuffers(3, attachments);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+// glfw: whenever the window size changed (by OS or user resize) this callback function executes
+void FramebufferSizeCallback(App* app, GLFWwindow* window, int width, int height)
+{
+    // make sure the viewport matches the new window dimensions; note that width and 
+    // height will be significantly larger than specified on retina displays.
+    glViewport(0, 0, width, height);
+
+    // Recalculate frame buffer
+    GenerateFramebuffer(app);
+}
+
+// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
+// Low level GLFW key handling is done in platform.h
+void ProcessInput(App* app, GLFWwindow* window)
+{
+    if (app->input.keys[K_ESCAPE] == BUTTON_PRESSED)
+        app->isRunning = false;
+
+    if (app->input.keys[K_W] == BUTTON_PRESSED)
+        app->camera.ProcessKeyboard(FORWARD, app->deltaTime);
+    if (app->input.keys[K_S] == BUTTON_PRESSED)
+        app->camera.ProcessKeyboard(BACKWARD, app->deltaTime);
+    if (app->input.keys[K_A] == BUTTON_PRESSED)
+        app->camera.ProcessKeyboard(CAM_LEFT, app->deltaTime);
+    if (app->input.keys[K_D] == BUTTON_PRESSED)
+        app->camera.ProcessKeyboard(CAM_RIGHT, app->deltaTime);
+}
+
+// glfw: whenever the mouse moves, this callback is called
+void MouseCallback(App* app, double xposIn, double yposIn)
+{
+    float xpos = static_cast<float>(xposIn);
+    float ypos = static_cast<float>(yposIn);
+
+    if (app->firstMouse) // initially set to true
+    {
+        app->lastX = xpos;
+        app->lastY = ypos;
+        app->firstMouse = false;
+    }
+
+    float xoffset = xpos - app->lastX;
+    float yoffset = app->lastY - ypos; // reversed since y-coordinates go from bottom to top
+
+    app->lastX = xpos;
+    app->lastY = ypos;
+
+    app->camera.ProcessMouseMovement(xoffset, yoffset);
+}
+
+// glfw: whenever the mouse scroll wheel scrolls, this callback is called
+void ScrollCallback(App* app, double xoffset, double yoffset)
+{
+    app->camera.ProcessMouseScroll(static_cast<float>(yoffset));
+}
+
+void CreateEntity(App* app, Entity entity)
+{
+    app->entities.push_back(entity);
+}
+
+void CreateLightSource(App* app, Light light)
+{
+    switch (light.type)
+    {
+    case LightType_Directional:
+        CreateEntity(app, LightSource(app->lights.size(), app->modelIndexes["cube"], app->modelIndexes["light source"], light.position, vec3(0.0f), vec3(0.025f)));
+        break;
+    case LightType_Point:
+        CreateEntity(app, LightSource(app->lights.size(), app->modelIndexes["sphere"], app->modelIndexes["light source"], light.position, vec3(0.0f), vec3(0.025f)));
+        break;
+    case LightType_Spot:
+        CreateEntity(app, LightSource(app->lights.size(), app->modelIndexes["sphere"], app->modelIndexes["light source"], light.position, vec3(0.0f), vec3(0.025f)));
+        break;
+    case LightType_Flash:
+        break;
+    default:
+        break;
+    }
+
+    app->lights.push_back(light);
 }
 
 void Init(App* app)

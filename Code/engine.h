@@ -457,12 +457,10 @@ void Render(App* app);
 
 u32 LoadTexture2D(App* app, const char* filepath);
 
-void FramebufferSizeCallback(GLFWwindow* window, int width, int height); // Window resize
+void FramebufferSizeCallback(App* app, GLFWwindow* window, int width, int height); // Window resize
 
-//void ProcessInput(App* app, GLFWwindow* window);                       // Keyboard Input
+//void ProcessInput(App* app, GLFWwindow* window);                                 // Keyboard Input
 
-void MouseCallback(App* app, double xpos, double ypos);                  // Mouse Input (Move - Drag)
+void MouseCallback(App* app, double xpos, double ypos);                            // Mouse Input (Move - Drag)
 
-void ScrollCallback(App* app, double xoffset, double yoffset);           // Mouse Input (Scroll - Wheel)
-
-void GenerateFramebuffer(App* app);                                      // Framebuffer (G-Buffer) generation
+void ScrollCallback(App* app, double xoffset, double yoffset);                     // Mouse Input (Scroll - Wheel)
